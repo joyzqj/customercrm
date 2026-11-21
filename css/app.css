@@ -1272,6 +1272,7 @@ table { border-collapse: separate; border-spacing: 0; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: #cfd8e0 #f7f9fa;
+  box-shadow: inset -16px 0 16px -16px rgba(16, 24, 40, .18);
 }
 .table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
 .table-wrap::-webkit-scrollbar-track { background: #f7f9fa; }
@@ -1377,7 +1378,7 @@ table { border-collapse: separate; border-spacing: 0; }
   gap: 2px;
 }
 
-/* 首列 / 操作列左右吸附，横向滚动时始终可见 */
+/* 首列 / 最近跟进 / 操作列左右吸附，横向滚动时始终可见 */
 .data-table--customers th.col-expand,
 .data-table--customers td.col-expand {
   position: sticky;
@@ -1385,23 +1386,37 @@ table { border-collapse: separate; border-spacing: 0; }
   z-index: 2;
   background: var(--surface);
 }
-.data-table--customers thead th.col-expand { z-index: 4; background: #f7f9fb; }
+.data-table--customers thead th.col-expand { z-index: 5; background: #f7f9fb; }
+
+.data-table--customers th[data-col="age"],
+.data-table--customers td[data-col="age"] {
+  position: sticky;
+  right: 118px;
+  z-index: 3;
+  background: var(--surface);
+  box-shadow: -10px 0 12px -12px rgba(16, 24, 40, .25);
+}
+.data-table--customers thead th[data-col="age"] { z-index: 5; background: #f7f9fb; }
+
 .data-table--customers th.col-actions,
 .data-table--customers td.col-actions {
   position: sticky;
   right: 0;
-  z-index: 2;
+  z-index: 4;
   background: var(--surface);
-  box-shadow: -7px 0 10px -8px rgba(16, 24, 40, .16);
+  border-left: 1px solid var(--line);
+  box-shadow: -10px 0 12px -12px rgba(16, 24, 40, .25);
 }
-.data-table--customers thead th.col-actions { z-index: 4; background: #f7f9fb; }
+.data-table--customers thead th.col-actions { z-index: 6; background: #f7f9fb; }
 
 .data-table--customers tbody tr.row { transition: background-color .12s ease; }
 .data-table--customers tbody tr.row:hover { background: #f8fbfb; }
 .data-table--customers tbody tr.row:hover td.col-expand,
+.data-table--customers tbody tr.row:hover td[data-col="age"],
 .data-table--customers tbody tr.row:hover td.col-actions { background: #f8fbfb; }
 .data-table--customers tbody tr.row--expanded { background: #f4faf9; }
 .data-table--customers tbody tr.row--expanded td.col-expand,
+.data-table--customers tbody tr.row--expanded td[data-col="age"],
 .data-table--customers tbody tr.row--expanded td.col-actions { background: #f4faf9; }
 .data-table--customers tbody tr.row--expanded > td { border-bottom-color: transparent; }
 .data-table--customers tbody tr.row--expanded .cell-strong { color: var(--brand-700); }
@@ -2932,6 +2947,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .page > .toolbar .btn--sm { flex: 1 1 auto; }
   .table-footer { padding: 10px 12px; }
   .table-footer .cell-muted { text-align: left; }
+  /* 移动端 Toast 放底部：顶部会压住页头标题与操作按钮 */
+  .toast-stack {
+    top: auto;
+    bottom: 14px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+  .toast { width: 100%; max-width: none; }
   .btn-recognize-top { display: none; }
   .topbar-help { display: none; }
   .save-state { padding: 0 8px; }
@@ -2984,10 +3008,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .modal--lg { max-width: none; }
 
   .toast-stack {
-    top: calc(var(--topbar-h) + 8px);
+    top: auto;
+    bottom: 12px;
+    left: 12px;
     right: 12px;
-    width: calc(100vw - 24px);
+    width: auto;
   }
+  .toast { width: 100%; max-width: none; }
 
   .followup-row {
     grid-template-columns: minmax(0, 1fr) 32px;
@@ -3147,11 +3174,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     overflow: visible !important;
     white-space: normal !important;
     text-overflow: clip !important;
+    box-shadow: none !important;
   }
+  /* 打印时去掉固定列与操作列，避免叠字 */
   .data-table--customers th.col-actions,
   .data-table--customers td.col-actions,
   .data-table--customers th.col-expand,
   .data-table--customers td.col-expand { display: none !important; }
+  .data-table--customers th[data-col="age"],
+  .data-table--customers td[data-col="age"] {
+    position: static !important;
+    right: auto !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  .data-table--customers td.col-actions,
+  .data-table--customers td[data-col="age"] { border-left: 0 !important; }
 
   .empty { padding: 24px 0; }
   .empty-art svg { width: 90px; height: 68px; }
