@@ -706,12 +706,12 @@ table { border-collapse: separate; border-spacing: 0; }
 .age {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 7px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -750,9 +750,9 @@ table { border-collapse: separate; border-spacing: 0; }
 /* 距上次跟进单元格里的「最近跟进日期」 */
 .age-date {
   display: inline-block;
-  margin-left: 6px;
+  margin-left: 5px;
   font-family: var(--font-num);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: -.01em;
   color: var(--faint);
@@ -1297,7 +1297,7 @@ table { border-collapse: separate; border-spacing: 0; }
 
 /* 客户台账：固定列宽 + 不换行，横向滚动交给 .table-wrap */
 .data-table--customers {
-  min-width: 1460px;
+  min-width: 1425px;
   table-layout: fixed;
   font-size: 12.5px;
 }
@@ -1309,7 +1309,7 @@ table { border-collapse: separate; border-spacing: 0; }
 }
 .data-table--customers tbody td {
   vertical-align: middle;
-  padding: 9px 12px;
+  padding: 9px 8px;
   border-bottom: 1px solid var(--line-soft);
 }
 .data-table--customers tbody tr:last-child > td { border-bottom: 0; }
@@ -1318,7 +1318,7 @@ table { border-collapse: separate; border-spacing: 0; }
   position: sticky;
   top: 0;
   z-index: 3;
-  padding: 10px 12px;
+  padding: 10px 8px;
   text-align: left;
   vertical-align: middle;
   background: #f7f9fb;
@@ -1332,37 +1332,39 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table thead th[data-col] { white-space: nowrap; }
 .data-table thead th.col-actions { text-align: right; }
 
-/* 列宽（与 min-width 1460 对应） */
+/* 列宽：全列合计 1425；<=1599 隐藏「成立时间/团队规模/年营收」后合计 1182。
+   1440 首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称 / 咨询产品 / 国家 / 公司名 / 跟进状态 / 是否成交，
+   「核心原因」横向滚动查看，操作列固定右侧。 */
 .data-table--customers th[data-col="firstInquiryAt"],
 .data-table--customers td[data-col="firstInquiryAt"] { width: 94px; }
+.data-table--customers th[data-col="age"],
+.data-table--customers td[data-col="age"] { width: 124px; }
 .data-table--customers th[data-col="customerName"],
 .data-table--customers td[data-col="customerName"] { width: 128px; }
 .data-table--customers th[data-col="product"],
-.data-table--customers td[data-col="product"] { width: 148px; }
+.data-table--customers td[data-col="product"] { width: 134px; }
 .data-table--customers th[data-col="country"],
-.data-table--customers td[data-col="country"] { width: 82px; }
+.data-table--customers td[data-col="country"] { width: 96px; }
 .data-table--customers th[data-col="companyName"],
-.data-table--customers td[data-col="companyName"] { width: 142px; }
+.data-table--customers td[data-col="companyName"] { width: 128px; }
 .data-table--customers th[data-col="foundedAt"],
-.data-table--customers td[data-col="foundedAt"] { width: 64px; }
+.data-table--customers td[data-col="foundedAt"] { width: 61px; }
 .data-table--customers th[data-col="teamSize"],
-.data-table--customers td[data-col="teamSize"] { width: 80px; }
+.data-table--customers td[data-col="teamSize"] { width: 76px; }
 .data-table--customers th[data-col="annualRevenue"],
-.data-table--customers td[data-col="annualRevenue"] { width: 94px; }
+.data-table--customers td[data-col="annualRevenue"] { width: 92px; }
 .data-table--customers th[data-col="followupStatus"],
 .data-table--customers td[data-col="followupStatus"] { width: 84px; }
 .data-table--customers th[data-col="dealStatus"],
-.data-table--customers td[data-col="dealStatus"] { width: 74px; }
+.data-table--customers td[data-col="dealStatus"] { width: 72px; }
 .data-table--customers th[data-col="coreReason"],
-.data-table--customers td[data-col="coreReason"] { width: 196px; }
-.data-table--customers th[data-col="age"],
-.data-table--customers td[data-col="age"] { width: 120px; }
+.data-table--customers td[data-col="coreReason"] { width: 170px; }
 
 .col-expand {
   width: 34px;
   min-width: 34px;
-  padding-left: 10px !important;
-  padding-right: 2px !important;
+  padding-left: 9px !important;
+  padding-right: 0 !important;
 }
 .data-table thead th.col-expand { text-align: center; }
 .col-actions {
@@ -1370,7 +1372,7 @@ table { border-collapse: separate; border-spacing: 0; }
   min-width: 118px;
   text-align: right;
 }
-.data-table--customers td.col-actions { padding-left: 4px; padding-right: 10px; }
+.data-table--customers td.col-actions { padding-left: 4px; padding-right: 8px; }
 .row-actions {
   display: inline-flex;
   align-items: center;
@@ -1378,7 +1380,7 @@ table { border-collapse: separate; border-spacing: 0; }
   gap: 2px;
 }
 
-/* 首列 / 最近跟进 / 操作列左右吸附，横向滚动时始终可见 */
+/* 首列 / 操作列左右吸附，横向滚动时始终可见 */
 .data-table--customers th.col-expand,
 .data-table--customers td.col-expand {
   position: sticky;
@@ -1387,16 +1389,6 @@ table { border-collapse: separate; border-spacing: 0; }
   background: var(--surface);
 }
 .data-table--customers thead th.col-expand { z-index: 5; background: #f7f9fb; }
-
-.data-table--customers th[data-col="age"],
-.data-table--customers td[data-col="age"] {
-  position: sticky;
-  right: 118px;
-  z-index: 3;
-  background: var(--surface);
-  box-shadow: -10px 0 12px -12px rgba(16, 24, 40, .25);
-}
-.data-table--customers thead th[data-col="age"] { z-index: 5; background: #f7f9fb; }
 
 .data-table--customers th.col-actions,
 .data-table--customers td.col-actions {
@@ -1412,11 +1404,9 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table--customers tbody tr.row { transition: background-color .12s ease; }
 .data-table--customers tbody tr.row:hover { background: #f8fbfb; }
 .data-table--customers tbody tr.row:hover td.col-expand,
-.data-table--customers tbody tr.row:hover td[data-col="age"],
 .data-table--customers tbody tr.row:hover td.col-actions { background: #f8fbfb; }
 .data-table--customers tbody tr.row--expanded { background: #f4faf9; }
 .data-table--customers tbody tr.row--expanded td.col-expand,
-.data-table--customers tbody tr.row--expanded td[data-col="age"],
 .data-table--customers tbody tr.row--expanded td.col-actions { background: #f4faf9; }
 .data-table--customers tbody tr.row--expanded > td { border-bottom-color: transparent; }
 .data-table--customers tbody tr.row--expanded .cell-strong { color: var(--brand-700); }
@@ -1454,6 +1444,28 @@ table { border-collapse: separate; border-spacing: 0; }
   font-size: 11.5px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+/* 展开行字段摘要（<=1599 时替代隐藏的成立时间/团队规模/年营收列） */
+.row-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.row-detail-meta span {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  white-space: normal;
+}
+.row-detail-meta i {
+  font-style: normal;
+  color: var(--faint);
+  margin-right: 6px;
 }
 
 /* 展开箭头 */
@@ -2853,18 +2865,34 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
    22. 响应式
    ================================================================== */
 
-/* 22.1 1024~1279：隐藏成立时间 / 团队规模 / 年营收 */
-@media (max-width: 1279px) {
+/* 22.1 <=1599：列优先级——隐藏「成立时间 / 团队规模 / 年营收」，
+   这三个字段改在行展开详情的 .row-detail-meta 中展示；
+   1440 首屏可完整看到「跟进状态 / 是否成交」，核心原因横向滚动，操作列固定右侧。 */
+@media (max-width: 1599px) {
   .data-table--customers th[data-col="foundedAt"],
   .data-table--customers td[data-col="foundedAt"],
   .data-table--customers th[data-col="teamSize"],
   .data-table--customers td[data-col="teamSize"],
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: none; }
-  .data-table--customers { min-width: 1224px; }
+  .data-table--customers { min-width: 1182px; }
+}
+
+/* 超宽屏：完整 14 列，展开行无需重复 meta */
+@media (min-width: 1600px) {
+  .row-detail-meta { display: none; }
+}
+
+/* 22.1b 1024~1279：收窄页面留白；产品/公司名略收窄，保证「是否成交」在固定操作列之前完整可见 */
+@media (max-width: 1279px) {
   .view { padding: 24px 24px 64px; }
   .topbar { padding: 0 24px; }
   .search-box { flex-basis: 290px; width: 290px; }
+  .data-table--customers th[data-col="product"],
+  .data-table--customers td[data-col="product"] { width: 118px; }
+  .data-table--customers th[data-col="companyName"],
+  .data-table--customers td[data-col="companyName"] { width: 112px; }
+  .data-table--customers { min-width: 1150px; }
 }
 
 /* 22.2 <1024：隐藏侧栏，抽屉式滑入；两栏布局堆叠 */
@@ -2901,7 +2929,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .recog-layout { grid-template-columns: minmax(0, 1fr); }
   .recog-panel--source > .textarea--lg { min-height: 200px; }
   .help-grid { grid-template-columns: minmax(0, 1fr); }
-  .data-table--customers { min-width: 1224px; }
+  .data-table--customers { min-width: 1150px; }
   .table-wrap { max-height: calc(100vh - 280px); }
 }
 
@@ -2913,7 +2941,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td[data-col="companyName"],
   .data-table--customers th[data-col="coreReason"],
   .data-table--customers td[data-col="coreReason"] { display: none; }
-  .data-table--customers { min-width: 736px; }
+  .data-table--customers th[data-col="age"],
+  .data-table--customers td[data-col="age"] { display: none; }
+  .data-table--customers { min-width: 626px; }
 
   .view { padding: 16px 16px 60px; }
   .topbar { padding: 0 16px; gap: 10px; }
@@ -2944,7 +2974,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   }
   .toolbar .filter-select,
   .filter-select { flex: 1 1 30%; max-width: none; min-width: 0; }
-  .page > .toolbar .btn--sm { flex: 1 1 auto; }
+  .page > .toolbar .btn--sm { flex: 0 0 auto; }
+  .toolbar-right .btn { flex: 1 1 auto; }
   .table-footer { padding: 10px 12px; }
   .table-footer .cell-muted { text-align: left; }
   /* 移动端 Toast 放底部：顶部会压住页头标题与操作按钮 */
@@ -3052,6 +3083,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .crumbs { display: none; }
   .topbar-heading { font-size: 15.5px; }
   .page-title { font-size: 19px; }
+
+  /* 极窄屏：首屏优先展示客户名称，首次询盘时间可在展开详情中查看 */
+  .data-table--customers th[data-col="firstInquiryAt"],
+  .data-table--customers td[data-col="firstInquiryAt"] { display: none; }
+  .data-table--customers { min-width: 532px; }
 
   .priority-item { flex-wrap: wrap; }
   .priority-main { flex: 1 1 100%; }
@@ -3190,6 +3226,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   }
   .data-table--customers td.col-actions,
   .data-table--customers td[data-col="age"] { border-left: 0 !important; }
+
+  /* 打印时恢复 <=1599 隐藏的三列，并展示展开行的字段摘要 */
+  .data-table--customers th[data-col="foundedAt"],
+  .data-table--customers td[data-col="foundedAt"],
+  .data-table--customers th[data-col="teamSize"],
+  .data-table--customers td[data-col="teamSize"],
+  .data-table--customers th[data-col="annualRevenue"],
+  .data-table--customers td[data-col="annualRevenue"] { display: table-cell !important; }
+  .row-detail-meta { display: flex !important; }
 
   .empty { padding: 24px 0; }
   .empty-art svg { width: 90px; height: 68px; }

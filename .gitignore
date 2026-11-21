@@ -6,14 +6,17 @@ desktop.ini
 
 # --- 构建与临时 ---
 node_modules/
-dist/
 .scratch/
 .tmp/
 tmp/
 *.tmp
 tests/out/
+
+# --- 截图草稿（正式交付图在 screenshots/ 根目录）---
 screenshots/smoke/
 screenshots/ui/
+screenshots/review/
+screenshots/live-home.png
 
 # --- Python（单文件构建脚本）---
 __pycache__/

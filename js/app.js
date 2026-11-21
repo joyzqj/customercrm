@@ -592,6 +592,7 @@
     return '<tr class="row' + (state.expanded[rec.id] ? ' row--expanded' : '') + '" data-id="' + esc(rec.id) + '" data-testid="customer-row">' +
         '<td class="col-expand"><button type="button" class="row-toggle icon-btn icon-btn--sm" data-action="toggle-row" data-id="' + esc(rec.id) + '" data-testid="row-toggle" aria-expanded="' + (state.expanded[rec.id] ? 'true' : 'false') + '" aria-controls="' + detailId + '" aria-label="展开最近三次跟进">' + icon('chevronRight', 14) + '</button></td>' +
         '<td data-col="firstInquiryAt" class="cell-num">' + esc(rec.firstInquiryAt) + '</td>' +
+        '<td data-col="age">' + ageCell(rec) + '</td>' +
         '<td data-col="customerName" class="cell-strong">' + esc(rec.customerName || '未命名') + '</td>' +
         '<td data-col="product" class="cell-muted" title="' + esc(rec.product) + '">' + esc(rec.product || '—') + '</td>' +
         '<td data-col="country" class="cell-country">' + flagText(rec.country) + esc(rec.country || '—') + '</td>' +
@@ -602,7 +603,6 @@
         '<td data-col="followupStatus">' + badge(rec.followupStatus, rec.statusTone) + '</td>' +
         '<td data-col="dealStatus">' + badge(rec.dealStatus, rec.dealTone) + '</td>' +
         '<td data-col="coreReason" class="cell-reason" title="' + esc(reason) + '">' + esc(reason || '—') + '</td>' +
-        '<td data-col="age">' + ageCell(rec) + '</td>' +
         '<td class="col-actions"><div class="row-actions">' +
           '<button type="button" class="icon-btn icon-btn--sm" data-action="add-followup" data-id="' + esc(rec.id) + '" data-testid="btn-add-followup" title="记录跟进" aria-label="记录跟进">' + icon('plus', 15) + '</button>' +
           '<button type="button" class="icon-btn icon-btn--sm" data-action="edit-customer" data-id="' + esc(rec.id) + '" data-testid="btn-edit-customer" title="编辑客户" aria-label="编辑客户">' + icon('edit', 15) + '</button>' +
@@ -612,6 +612,13 @@
       '<tr class="row-detail" id="' + detailId + '" data-detail="' + esc(rec.id) + '"' + (state.expanded[rec.id] ? '' : ' hidden') + '>' +
         '<td colspan="14">' +
           '<div class="row-detail-inner">' +
+            '<div class="row-detail-meta">' +
+              '<span><i>成立时间</i>' + esc(rec.foundedAt || '—') + '</span>' +
+              '<span><i>团队规模</i>' + esc(rec.teamSize || '—') + '</span>' +
+              '<span><i>年营收</i>' + esc(rec.annualRevenue || '—') + '</span>' +
+              '<span><i>首次询盘</i>' + esc(rec.firstInquiryAt) + '（' + (rec.inquiryDays === null ? '—' : '已跟进 ' + rec.inquiryDays + ' 天') + '）</span>' +
+              '<span><i>最近更新</i>' + esc(schema.formatDateTime(rec.updatedAt)) + '</span>' +
+            '</div>' +
             (rec.followups.length
               ? '<div class="followup-strip">' + rec.followups.map(function (item, index) {
                   return '<div class="followup-chip">' +
@@ -670,6 +677,7 @@
         '<thead><tr>' +
           '<th class="col-expand" scope="col"><span class="sr-only">展开</span></th>' +
           '<th data-col="firstInquiryAt" scope="col">' + sortButton('firstInquiryAt', '首次询盘时间') + '</th>' +
+          '<th data-col="age" scope="col">' + sortButton('daysSince', '距上次跟进') + '</th>' +
           '<th data-col="customerName" scope="col">' + sortButton('customerName', '客户名称') + '</th>' +
           '<th data-col="product" scope="col">咨询产品</th>' +
           '<th data-col="country" scope="col">国家</th>' +
@@ -680,7 +688,6 @@
           '<th data-col="followupStatus" scope="col">跟进状态</th>' +
           '<th data-col="dealStatus" scope="col">是否成交</th>' +
           '<th data-col="coreReason" scope="col">核心原因</th>' +
-          '<th data-col="age" scope="col">' + sortButton('daysSince', '距上次跟进') + '</th>' +
           '<th class="col-actions" scope="col">操作</th>' +
         '</tr></thead>' +
         '<tbody>' + records.map(customerRowHtml).join('') + '</tbody>' +

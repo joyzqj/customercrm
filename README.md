@@ -48,6 +48,8 @@ python -m http.server 8080
 
 ### 方式四：单文件版（发给同事最方便）
 
+仓库里已提供构建好的单文件版：`dist/客户通-外贸客户管理系统.html`（约 330 KB，CSS/JS 全内联，双击即用）。需要重新构建时：
+
 ```bash
 python build_single_file.py
 # 生成 dist/客户通-外贸客户管理系统.html —— 一个文件包含全部 CSS/JS，可微信/邮件直接发
@@ -114,20 +116,36 @@ customer-crm/
 │   ├── e2e.mjs                 # 端到端测试（真实浏览器）
 │   └── smoke.mjs               # 联调冒烟测试
 ├── docs/CONTRACT.md            # 工程契约（字段/接口/样式类清单）
+├── docs/ci-tests.yml           # GitHub Actions 单测工作流（复制到 .github/workflows/tests.yml 即启用）
 ├── build_single_file.py        # 单文件构建脚本
-└── .github/workflows/tests.yml # GitHub Actions 单测
 ```
 
 ## 本地开发与测试
 
 ```bash
-node tests/test-schema.mjs   # 数据模型
-node tests/test-parser.mjs   # 文本识别
-node tests/test-xlsx.mjs     # Excel 导出（需要 Python + openpyxl 做深度校验，缺省时自动跳过）
-node tests/e2e.mjs           # 端到端（自动启动 headless Chrome，无 npm 依赖）
+node tests/test-schema.mjs   # 数据模型 94 个断言
+node tests/test-parser.mjs   # 文本识别 49 个用例
+node tests/test-xlsx.mjs     # Excel 导出 132 项断言（含 openpyxl 读回校验）
+node tests/smoke.mjs         # 联调冒烟 24 项（真实浏览器）
+node tests/e2e.mjs           # 端到端验收 72 个用例（自动启动 headless Chrome）
+node tests/file-check.mjs    # file:// 离线双击可用性 + 单文件版校验
+node tests/live-check.mjs    # 线上部署巡检（默认检查 GitHub Pages 地址）
 ```
 
+端到端验收详情见 [`tests/QA_REPORT.md`](tests/QA_REPORT.md)：**72/72 PASS，零遗留缺陷，结论「可以发布」**。
 E2E 依赖本机 Chrome/Edge；测试工具用 Node 内置的 `fetch` + `WebSocket`，**不需要安装任何 npm 包**。
+Excel 深度校验需要 Python + `openpyxl`，缺省会打印 `SKIP openpyxl 校验` 并自动降级为纯 Node 的 ZIP/XML 断言。
+
+### 可选：开启 GitHub Actions 单测
+
+当前 GitHub OAuth token 没有 `workflow` 权限，因此 CI 工作流放在 `docs/ci-tests.yml`。需要时：
+
+```bash
+mkdir -p .github/workflows && cp docs/ci-tests.yml .github/workflows/tests.yml
+git add .github/workflows/tests.yml && git commit -m "ci: 开启单测" && git push
+```
+
+或在 GitHub 网页端 “Add file → Create new file” 直接粘贴该文件内容。
 
 ## 部署到 GitHub Pages
 

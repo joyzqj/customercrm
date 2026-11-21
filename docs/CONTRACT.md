@@ -307,11 +307,14 @@ window.CrmXlsx = {
 
 ### 7.3 响应式与打印
 
-- `>= 1280px`：完整 13 列 + 操作列。
-- `1024 ~ 1279px`：隐藏 `[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`。
+表格列优先级（v1.0 定稿，`app.js` 输出 14 列，`.data-table--customers` 按属性选择器显隐）：
+
+- `>= 1600px`：显示全部列（13 个数据列 + 展开列 + 操作列），`.row-detail-meta` 隐藏。
+- `1280 ~ 1599px`（含 1440 笔记本）：隐藏 `[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`（这三项在行展开的 `.row-detail-meta` 中展示，`.data-table--customers { min-width: 1182px }`）；首屏可见「首次询盘时间 → 距上次跟进 → 客户名称 → 咨询产品 → 国家 → 公司名 → 跟进状态 → 是否成交」，核心原因横向滚动，操作列右侧固定。
 - `< 1024px`：侧栏默认隐藏（`transform: translateX(-100%)`，`.is-open` 滑入 + 背景遮罩）。
-- `< 768px`：隐藏 `[data-col="product"]`、`[data-col="companyName"]`、`[data-col="coreReason"]`；`.toolbar` 换行；表格横向滚动，禁止整页横向溢出（`body` 不能出现 x 轴滚动条）。
-- `@media print`：隐藏侧栏/顶栏/工具栏/操作列/Toast/Modal，表格全宽、表头重复（`thead { display: table-header-group }`），打印字号 11pt、去阴影。
+- `< 768px`：再隐藏 `[data-col="product"]`、`[data-col="companyName"]`、`[data-col="coreReason"]`；`.toolbar` 换行；表格横向滚动，禁止整页横向溢出（`body` 不能出现 x 轴滚动条）。
+- 右侧固定列（`[data-col="age"]` 不固定、`.col-actions` 固定）背景必须不透明，行 hover / 展开态的固定列背景同步。
+- `@media print`：隐藏侧栏/顶栏/工具栏/操作列/Toast/Modal，表格全宽并**恢复被响应式隐藏的列**（`display: table-cell !important`）、表头重复（`thead { display: table-header-group }`），打印字号 11pt、去阴影。
 - 所有断点都要保证：`document.documentElement.scrollWidth <= innerWidth + 1`（qa-dev 会断言）。
 
 ### 7.4 截图验收工况（ui-dev 自查）
