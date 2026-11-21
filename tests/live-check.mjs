@@ -34,7 +34,7 @@ try {
     version: window.CustomerCRM.version
   }))()`);
   console.log('online =', JSON.stringify(info));
-  check('线上 JS 加载正常', info.version === '1.1.0', JSON.stringify(info));
+  check('线上 JS 加载正常', info.version === '1.2.0', JSON.stringify(info));
   check('示例数据 12 条', info.total === 12, info.total);
   check('识别引擎在线可用', info.parser === true);
   check('Excel 引擎在线可用', info.xlsx === true);
@@ -62,11 +62,17 @@ try {
   // 线上识别
   const recog = await page.evaluate(`(() => {
     const r = window.CustomerCRM.app.recognize(window.CrmParser.SAMPLE_TEXTS[0].text);
-    return r ? { filled: r.filled, name: r.fields.customerName, country: r.fields.country, model: r.fields.productModel, biz: r.fields.mainBusiness } : null;
+    return r ? {
+      filled: r.filled, total: r.missing.length + r.filled,
+      name: r.fields.customerName, country: r.fields.country,
+      model: r.fields.productModel, biz: r.fields.mainBusiness,
+      email: r.fields.email, phone: r.fields.phone, address: r.fields.address
+    } : null;
   })()`);
   console.log('recognize =', JSON.stringify(recog));
-  check('线上识别样例 A', recog && recog.filled >= 11 && recog.name === 'Michael Braun', JSON.stringify(recog));
+  check('线上识别样例 A', recog && recog.filled >= 15 && recog.name === 'Michael Braun', JSON.stringify(recog));
   check('线上识别产品型号/主营业务', recog && /500ml/i.test(recog.model || '') && /户外用品/.test(recog.biz || ''), JSON.stringify(recog));
+  check('线上识别邮箱/电话/地址', recog && /braun-trading\.de$/.test(recog.email || '') && /\+49/.test(recog.phone || '') && /Stuttgart/.test(recog.address || ''), JSON.stringify(recog));
 
   // v1.1：扇形图 / 宽版台账 / 产品库
   await page.appNavigate('#/dashboard');
@@ -89,18 +95,39 @@ try {
   const wide = await page.evaluate(`(() => {
     const inner = document.querySelector('.view-inner');
     const table = document.querySelector('.data-table--customers');
+    const firstRow = document.querySelector('tr.row');
+    const contact = firstRow ? firstRow.querySelector('.cell-contact') : null;
+    const addressHead = document.querySelector('th[data-col="address"]');
     return {
       bodyClass: document.body.className,
       innerWidth: Math.round(inner.getBoundingClientRect().width),
       tableWidth: Math.round(table.getBoundingClientRect().width),
-      cols: document.querySelectorAll('tr.row:first-of-type td').length,
+      cols: firstRow ? firstRow.querySelectorAll('td').length : 0,
+      contact: contact ? contact.textContent.trim() : '',
+      hasAddressCol: !!addressHead,
       products: window.CustomerCRM.store.listProducts().length
     };
   })()`);
   console.log('online layout =', JSON.stringify(wide));
   check('线上宽版台账生效', /route-customers/.test(wide.bodyClass) && wide.innerWidth >= 1120, JSON.stringify(wide));
-  check('线上表格 15 列', wide.cols === 15, wide.cols);
+  check('线上表格 16 列', wide.cols === 16, wide.cols);
+  check('线上名称单元格显示邮箱/电话', /@/.test(wide.contact || ''), wide.contact);
+  check('线上存在地址列', wide.hasAddressCol === true);
   check('线上产品库 12 条', wide.products === 12, wide.products);
+
+  // 展开行联系方式链接
+  await page.click('tr.row .row-toggle');
+  await sleep(200);
+  const contactLinks = await page.evaluate(`(() => {
+    const meta = document.querySelector('.row-detail:not([hidden]) .row-detail-meta');
+    if (!meta) return null;
+    const mail = meta.querySelector('a[href^="mailto:"]');
+    const tel = meta.querySelector('a[href^="tel:"]');
+    return { mail: mail ? mail.getAttribute('href') : '', tel: tel ? tel.getAttribute('href') : '', text: meta.textContent.slice(0, 120) };
+  })()`);
+  console.log('online contact links =', JSON.stringify(contactLinks));
+  check('线上展开行有 mailto 链接', !!contactLinks && /mailto:/.test(contactLinks.mail), JSON.stringify(contactLinks));
+  check('线上展开行有 tel 链接', !!contactLinks && /tel:\+?\d/.test(contactLinks.tel), JSON.stringify(contactLinks));
 
   check('线上无 console 错误', page.errors().length === 0, JSON.stringify(page.errors().slice(0, 3)));
   await page.screenshot(path.join('screenshots', 'live-home.png'));

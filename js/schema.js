@@ -11,7 +11,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var STORAGE_KEY = 'customer-crm.v1';
 
   /* ------------------------------------------------------------------ */
@@ -197,6 +197,21 @@
       placeholder: 'Michael Braun'
     },
     {
+      key: 'email', label: '邮箱', type: 'email', required: false,
+      table: true, excel: '邮箱', width: 26, hint: '客户联系邮箱，用于发送报价 / 跟进邮件',
+      placeholder: 'michael.braun@braun-trading.de'
+    },
+    {
+      key: 'phone', label: '电话', type: 'tel', required: false,
+      table: true, excel: '电话', width: 20, hint: '客户电话 / 手机 / WhatsApp，建议带国际区号',
+      placeholder: '+49 171 1234567'
+    },
+    {
+      key: 'address', label: '地址', type: 'text', required: false, full: true,
+      table: true, excel: '地址', width: 34, hint: '客户公司地址 / 收货地址（中英文均可）',
+      placeholder: 'Industriestr. 12, 70565 Stuttgart, Germany'
+    },
+    {
       key: 'product', label: '咨询产品', type: 'text', required: false,
       table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品名称，可从「产品库」下拉选择',
       placeholder: '不锈钢保温杯'
@@ -255,7 +270,7 @@
     {
       title: '客户与公司信息',
       hint: '询盘来源与客户背景，用于判断客户质量与采购能力',
-      keys: ['firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
+      keys: ['firstInquiryAt', 'customerName', 'email', 'phone', 'address', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
     },
     {
       title: '跟进与成交',
@@ -510,6 +525,9 @@
     id: '',
     firstInquiryAt: '',
     customerName: '',
+    email: '',
+    phone: '',
+    address: '',
     product: '',
     productModel: '',
     country: '',
@@ -672,6 +690,9 @@
       id: rec.id,
       firstInquiryAt: rec.firstInquiryAt,
       customerName: rec.customerName || '',
+      email: rec.email || '',
+      phone: rec.phone || '',
+      address: rec.address || '',
       product: rec.product || '',
       productModel: rec.productModel || '',
       country: rec.country || '',
@@ -725,6 +746,13 @@
     return f ? f.label : key;
   }
 
+  /** 邮箱格式校验（宽松：xx@yy.zz 即可，允许空值） */
+  function isValidEmail(value) {
+    var text = plainText(value);
+    if (!text) return true;
+    return /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(text);
+  }
+
   /** 表单校验：返回 { ok, errors: { key: message } } */
   function validate(record) {
     var errors = {};
@@ -732,6 +760,9 @@
     if (!isValidISO(rec.firstInquiryAt)) errors.firstInquiryAt = '请选择首次询盘日期';
     if (!plainText(rec.customerName)) errors.customerName = '请填写客户名称';
     if (plainText(rec.customerName).length > 120) errors.customerName = '客户名称过长';
+    if (!isValidEmail(rec.email)) errors.email = '邮箱格式不正确，例如 name@example.com';
+    if (plainText(rec.phone).length > 60) errors.phone = '电话过长';
+    if (plainText(rec.address).length > 500) errors.address = '地址过长';
     if (rec.followupStatus && FOLLOWUP_STATUS.indexOf(rec.followupStatus) === -1) errors.followupStatus = '跟进状态不合法';
     if (rec.dealStatus && DEAL_STATUS.indexOf(rec.dealStatus) === -1) errors.dealStatus = '成交状态不合法';
     return { ok: Object.keys(errors).length === 0, errors: errors };
@@ -759,6 +790,7 @@
     normalize: normalize,
     derive: derive,
     validate: validate,
+    isValidEmail: isValidEmail,
     fieldByKey: fieldByKey,
     fieldLabel: fieldLabel,
 

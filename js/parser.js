@@ -26,12 +26,13 @@
   if (!schema && typeof globalThis !== 'undefined' && globalThis.CRM_SCHEMA) { schema = globalThis.CRM_SCHEMA; }
   if (!schema && typeof window !== 'undefined' && window.CRM_SCHEMA) { schema = window.CRM_SCHEMA; }
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
 
-  /* 13 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
+  /* 16 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
   var FALLBACK_FIELD_KEYS = [
-    'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
-    'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+    'firstInquiryAt', 'customerName', 'email', 'phone', 'address',
+    'product', 'productModel', 'country', 'companyName', 'mainBusiness',
+    'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
   ];
   var FIELD_KEYS = FALLBACK_FIELD_KEYS.slice();
   if (schema && Array.isArray(schema.FIELDS) && schema.FIELDS.length) {
@@ -42,19 +43,19 @@
   /* 单次识别允许处理的最大字符数（超长文本截断，保证性能与稳定性） */
   var MAX_TEXT_LENGTH = 200000;
 
-  /* 供界面「示例」按钮使用：三段原文直接取契约 §5.3 */
+  /* 供界面「示例」按钮使用：三段原文在契约 §5.3 基础上补充联系方式（v1.2） */
   var SAMPLE_TEXTS = [
     {
       label: '中文询盘',
-      text: '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。'
+      text: '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, 70565 Stuttgart, Germany。'
     },
     {
       label: '英文询盘',
-      text: 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20.'
+      text: 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20. Email: michael.braun@braun-trading.de, Tel: +49 711 4567 890, Address: Industriestr. 12, 70565 Stuttgart, Germany.'
     },
     {
       label: '展会名片速记',
-      text: '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。'
+      text: '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。邮箱 a.hassan@elnile-import.com，电话 +20 100 234 5678，地址 25 Nile Corniche, Cairo 11511, Egypt。'
     }
   ];
 
@@ -1038,6 +1039,166 @@
   }
 
   /* ================================================================== */
+  /* 7c. 联系方式：邮箱 / 电话 / 地址（v1.2 新增字段）                     */
+  /* ================================================================== */
+
+  /* ---------- 7c.1 邮箱 email ---------- */
+
+  var EMAIL_RE = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)+/g;
+
+  /** 邮箱：取文中第一个合法邮箱（标签/裸邮箱都行），≤120 字 */
+  function extractEmail(norm) {
+    EMAIL_RE.lastIndex = 0;
+    var m = EMAIL_RE.exec(norm);
+    while (m !== null) {
+      if (m[0].length === 0) { EMAIL_RE.lastIndex += 1; m = EMAIL_RE.exec(norm); continue; }
+      var value = m[0].replace(/[.,;:]+$/, '');
+      if (value.length >= 5 && value.length <= 120 && value.indexOf('@') > 0) {
+        return { value: value, index: m.index, len: value.length, rule: 'email.email' };
+      }
+      m = EMAIL_RE.exec(norm);
+    }
+    return null;
+  }
+
+  /* ---------- 7c.2 电话 phone ---------- */
+
+  var PHONE_RULES = [
+    {
+      /* 中文/英文标签之后的号码（Tel/Phone/Mobile/WhatsApp/传真/手机…） */
+      id: 'phone.labeled',
+      re: /(?:联系电话|联系方式|电话|手机号码|手机号|手机|座机|固话|传真|WhatsApp|Telegram|WeChat|微信|Tel|Phone|Mobile|Cell|Fax)\s*[：:.]?\s*(\+?(?:\(\s*\d{1,4}\s*\)\s*)?\d[\d\s\-().]{5,22}\d)/gi
+    },
+    { id: 'phone.intl', re: /(?:^|[^\d+])(\+\d[\d\s\-().]{5,22}\d)/g },
+    { id: 'phone.intl00', re: /(?:^|[^\d])(00\d[\d\s\-().]{5,22}\d)/g },
+    { id: 'phone.cn-mobile', re: /(?:^|[^\d])(1[3-9]\d{9})(?!\d)/g },
+    { id: 'phone.grouped', re: /(?:^|[^\d])((?:\(\d{2,4}\)\s*)?\d{3,4}[\s\-]\d{3,4}(?:[\s\-]\d{2,4})?)(?!\d)/g }
+  ];
+
+  /** 明显的非电话语境：日期 / 金额 / 订单号 / 发票号 */
+  function phoneContextRejected(norm, index, len) {
+    var before = norm.slice(Math.max(0, index - 14), index);
+    var after = norm.slice(index + len, Math.min(norm.length, index + len + 14));
+    var around = (before + ' ' + after).toLowerCase();
+    if (/(?:\bpo\b|订单|单号|合同号|发票|invoice|order\s*(?:no|#)|sku|编号|货号)/i.test(around)) { return true; }
+    if (/(?:年|月|日|元|万|亿|美元|欧元|英镑|人民币|usd|eur|gbp|rmb|%|pcs|件套)/i.test(before.slice(-6) + ' ' + after.slice(0, 8))) { return true; }
+    return false;
+  }
+
+  /** 校验并清洗电话候选：7-20 位数字，排除纯日期/金额/单号/邮箱内数字 */
+  function phoneValueOf(candidate, norm, index, len, ruleId) {
+    var raw = collapseSpace(candidate).replace(/^[\s\-]+/, '').replace(/[\s\-]+$/, '');
+    raw = raw.replace(/[.,;:，。；：、]+$/, '');
+    var digits = raw.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 20) { return null; }
+    if (raw.length > 40) { return null; }
+    /* 纯日期形态（2026-09-12）绝不当电话 */
+    if (/^\d{4}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{1,2}$/.test(raw)) { return null; }
+    /* 与邮箱/单词粘连的数字（如 13800138000@qq.com）不是电话 */
+    var prev = index > 0 ? norm.charAt(index - 1) : '';
+    var next = norm.charAt(index + len);
+    if (/[A-Za-z0-9@._%+\-]/.test(prev) || /[A-Za-z0-9@]/.test(next)) { return null; }
+    if (phoneContextRejected(norm, index, len)) { return null; }
+    return { value: raw, index: index, len: len, rule: ruleId };
+  }
+
+  /** 电话：标签 > 国际区号 > 00 国际 > 中国手机 > 分组号码，保留原始格式（空白归一） */
+  function extractPhone(norm) {
+    for (var r = 0; r < PHONE_RULES.length; r += 1) {
+      var rule = PHONE_RULES[r];
+      var re = rule.re;
+      re.lastIndex = 0;
+      var m = re.exec(norm);
+      while (m !== null) {
+        if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(norm); continue; }
+        var candidate = m[1] || m[0];
+        var index = m.index + m[0].indexOf(candidate);
+        var hit = phoneValueOf(candidate, norm, index, candidate.length, rule.id);
+        if (hit) { return hit; }
+        m = re.exec(norm);
+      }
+    }
+    return null;
+  }
+
+  /* ---------- 7c.3 地址 address ---------- */
+
+  var ADDRESS_RULES = [
+    {
+      /* 公司/联系地址标签优先（允许英文地址里的逗号） */
+      id: 'address.cn-strong',
+      re: /(?:公司地址|办公地址|联系地址|通讯地址|注册地址|总部地址)\s*[：:]?\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 英文 Address / Add / Office / Headquarters 后的地址 */
+      id: 'address.en',
+      re: /(?:Address|Add\.?|Office|Headquarters|HQ)\s*(?:[:：]\s*|\n\s*)([^\n]{3,200})/gi
+    },
+    {
+      /* 泛化中文地址标签（收货地址、地址等） */
+      id: 'address.cn-label',
+      re: /(?:收货地址|地址|住址|所在地)\s*[：:]?\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 公司位于 XXX */
+      id: 'address.cn-located',
+      re: /(?:公司|客户|他们|其|总部)?\s*(?:位于|坐落于|地处)\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 无标签的省市路号地址（如 浙江省宁波市鄞州区天童南路88号） */
+      id: 'address.cn-standalone',
+      re: /((?:[\u4e00-\u9fa5]{2,10}(?:省|自治区|特别行政区))?[\u4e00-\u9fa5]{2,10}市[\u4e00-\u9fa5]{2,12}(?:区|县)[\u4e00-\u9fa5A-Za-z0-9\s\-]{2,30}(?:路|街|大道|巷)[\u4e00-\u9fa5A-Za-z0-9\s\-]{1,20}(?:号|弄|栋|楼|室)?)/g
+    }
+  ];
+
+  /* 「邮箱地址」「IP 地址」「网址」里的「地址」不是通讯地址 */
+  var ADDRESS_NOISE_RE = /(?:邮箱|email|e-mail|ip|网址|网站|网页|链接|服务器|二维码)/i;
+
+  function addressNoise(norm, index) {
+    var before = norm.slice(Math.max(0, index - 10), index);
+    return ADDRESS_NOISE_RE.test(before);
+  }
+
+  /** 清洗地址：去标签残留、去后面混入的说明句、≤200 字 */
+  function cleanAddress(value) {
+    var t = collapseSpace(value);
+    t = t.replace(/^[\s:：,，;；\-–—]+/, '');
+    /* 中文地址后常跟「，请…/，电话…」等说明，从这些词处截断 */
+    t = t.split(/[，,]\s*(?=(?:请|谢谢|感谢|联系|电话|手机|邮箱|email|e-mail|传真|邮编|我们|本公司|欢迎|期待|如有|需要|发货|收货|成立于|成立|主营|规模|员工|团队|年营|主要))/i)[0];
+    /* 英文地址可能把后面的客套话一起吞进来，按常见句首截断 */
+    t = t.split(/\s+(?:Please|Kindly|Best\s+regards|Thanks|Thank\s+you|Regards|Sincerely|We\s+look|Looking\s+forward|Our\s+company)\b/i)[0];
+    t = t.replace(/[\s,，;；。.]+$/, '');
+    if (!t || t.length < 4) { return ''; }
+    if (t.length > 200) { t = t.slice(0, 200); }
+    return t;
+  }
+
+  /** 地址：公司/联系地址优先，其次其他标签，最后「位于」与无标签省市路号 */
+  function extractAddress(norm) {
+    for (var r = 0; r < ADDRESS_RULES.length; r += 1) {
+      var rule = ADDRESS_RULES[r];
+      var re = rule.re;
+      re.lastIndex = 0;
+      var m = re.exec(norm);
+      while (m !== null) {
+        if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(norm); continue; }
+        if (addressNoise(norm, m.index)) {
+          m = re.exec(norm);
+          continue;
+        }
+        var raw = m[1] || m[0];
+        var value = cleanAddress(raw);
+        if (value) {
+          var index = m.index + m[0].indexOf(raw);
+          return { value: value, index: index, len: raw.length, rule: rule.id };
+        }
+        m = re.exec(norm);
+      }
+    }
+    return null;
+  }
+
+  /* ================================================================== */
   /* 8. 跟进状态 / 成交状态                                               */
   /* ================================================================== */
 
@@ -1330,6 +1491,14 @@
       if (business) {
         setField(ctx, 'mainBusiness', business.value, business.index, business.len, business.rule);
       }
+
+      /* 8d) 联系方式（v1.2：邮箱 / 电话 / 地址） */
+      var email = extractEmail(norm);
+      if (email) { setField(ctx, 'email', email.value, email.index, email.len, email.rule); }
+      var phone = extractPhone(norm);
+      if (phone) { setField(ctx, 'phone', phone.value, phone.index, phone.len, phone.rule); }
+      var address = extractAddress(norm);
+      if (address) { setField(ctx, 'address', address.value, address.index, address.len, address.rule); }
 
       /* 9) 跟进状态：识别不到则按契约给默认「新询盘」 */
       var status = pickFirstRule(STATUS_RULES, norm);

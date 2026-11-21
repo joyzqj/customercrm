@@ -1,6 +1,7 @@
-# 客户通 CustomerCRM — 工程契约 v1.1
+# 客户通 CustomerCRM — 工程契约 v1.2
 
-> v1.1 变更（2026-11-22）：新增「主营业务」「产品型号」字段；新增产品库（预录入产品名称+型号，客户表单下拉选择）；仪表盘国家分布改为 SVG 扇形图；客户台账页改为宽版布局（占屏更大）。
+> v1.2 变更（2026-11-22）：新增「邮箱」「电话」「地址」三个联系方式字段（16 字段）；Excel 客户总表 24 列 / 跟进明细 13 列；台账客户名称单元格展示邮箱/电话副行、新增地址列（>=1600 显示）；识别引擎支持邮箱/电话/地址抽取。
+> v1.1 变更：新增「主营业务」「产品型号」字段；产品库（名称+型号联动下拉）；仪表盘国家分布改 SVG 扇形图；客户台账宽版布局。
 
 > 本文件是团队唯一的接口真源（source of truth）。任何接口变更必须先改本文件，并在任务板留痕。
 
@@ -68,6 +69,9 @@
   firstInquiryAt: '2026-09-12',     // 首次询盘时间 YYYY-MM-DD
   customerName: 'Michael Braun',    // 客户名称（联系人）
   product: '不锈钢保温杯',            // 咨询产品名称（可从产品库选择）
+  email: 'm.braun@braun-trading.de',// 邮箱（v1.2）
+  phone: '+49 711 4567 890',        // 电话 / WhatsApp（v1.2）
+  address: 'Industriestr. 12, 70565 Stuttgart, Germany', // 地址（v1.2）
   productModel: '500ml',            // 产品型号 / 规格（与 product 配对）
   country: '德国',                   // 国家（中文名，来自 schema 国家表或自由输入）
   companyName: 'Braun Trading GmbH',// 公司名
@@ -121,7 +125,7 @@ window.CRM_SCHEMA = {
   VERSION: '1.1.0',
   STORAGE_KEY: 'customer-crm.v1',
 
-  FIELDS: [{ key, label, type, required, table, excel, width, hint, options? }],  // 13 个字段，见下
+  FIELDS: [{ key, label, type, required, table, excel, width, hint, options? }],  // 16 个字段，见下
   FIELD_GROUPS: [{ title, hint, keys: [...] }],   // 表单分组
   FOLLOWUP_STATUS, DEAL_STATUS, STATUS_TONE, DEAL_TONE,
   COUNTRIES: [{ name:'德国', iso:'DE', en:'Germany', aliases:['german','deutschland'] }],
@@ -151,7 +155,7 @@ window.CRM_SCHEMA = {
 };
 ```
 
-13 个字段（**顺序即界面、表单、Excel 列顺序**）：
+16 个字段（**顺序即界面、表单、Excel 列顺序**）：
 
 | key | label | type | 说明 |
 | --- | --- | --- | --- |
@@ -195,7 +199,7 @@ window.CrmParser = {
     evidence: { [fieldKey]: { value, snippet } },       // snippet ≤ 60 字，用于界面对照
     warnings: [{ code, message }],
     filled: number,                          // fields 非空数量（不含 followups）
-    missing: string[],                       // 13 个字段里没识别到的 key
+    missing: string[],                       // 16 个字段里没识别到的 key
     raw?: { textLength, countryHit, matchedRules: string[] }   // 调试信息，可省略字段内容
   },
   // 供界面「示例」按钮使用，至少 3 段，中英混合
@@ -240,15 +244,15 @@ window.CrmParser = {
 **样例 A（中文）**
 
 ```
-2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。
+2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, 70565 Stuttgart, Germany。
 ```
 
-断言：`firstInquiryAt=2026-09-12`、`customerName≈Michael Braun`、`companyName≈Braun Trading GmbH`、`country=德国`、`foundedAt≈1998`、`teamSize≈50-100人`、`annualRevenue≈1200万欧元`、`product` 含 `保温杯`、`productModel` 含 `500ml`、`mainBusiness` 含 `户外用品`、`followupStatus=已报价`、`dealStatus=未成交`、`coreReason` 含 `价格`、`followups.length>=2` 且首条日期 `2026-11-18`。
+断言：`firstInquiryAt=2026-09-12`、`customerName≈Michael Braun`、`companyName≈Braun Trading GmbH`、`country=德国`、`foundedAt≈1998`、`teamSize≈50-100人`、`annualRevenue≈1200万欧元`、`product` 含 `保温杯`、`productModel` 含 `500ml`、`mainBusiness` 含 `户外用品`、`email=m.braun@braun-trading.de`、`phone` 含 `+49`、`address` 含 `Stuttgart`、`followupStatus=已报价`、`dealStatus=未成交`、`coreReason` 含 `价格`、`followups.length>=2` 且首条日期 `2026-11-18`。
 
 **样例 B（英文）**
 
 ```
-Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20.
+Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20. Email: michael.braun@braun-trading.de, Tel: +49 711 4567 890, Address: Industriestr. 12, 70565 Stuttgart, Germany.
 ```
 
 断言：`country=德国`、`firstInquiryAt=2026-09-12`、`foundedAt=1998`、`teamSize` 含 `50-100`、`annualRevenue` 含 `12`、`followupStatus=已成交`、`dealStatus=已成交`、`followups` 含 `2026-11-20`。
@@ -256,7 +260,7 @@ Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 rega
 **样例 C（展会名片速记，字段少）**
 
 ```
-广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。
+广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。邮箱 a.hassan@elnile-import.com，电话 +20 100 234 5678，地址 25 Nile Corniche, Cairo 11511, Egypt。
 ```
 
 断言：`country=埃及`、`customerName` 含 `Ahmed`、`companyName` 含 `El Nile`、`foundedAt=2011`、`teamSize` 含 `15`、`annualRevenue` 含 `300`、`product` 含 `陶瓷餐具`、`mainBusiness` 含 `家居用品`、`followupStatus` ∈ {已回复, 寄样中}。
@@ -284,11 +288,11 @@ window.CrmXlsx = {
 };
 ```
 
-`exportCustomers` 的列（顺序固定，v1.1 共 **21 列**）：
+`exportCustomers` 的列（顺序固定，v1.2 共 **24 列**）：
 
-**Sheet 1 `客户总表`**：序号 | 首次询盘时间 | 客户名称 | 咨询产品 | 产品型号 | 国家 | 公司名 | 主营业务 | 成立时间 | 团队规模 | 年营收 | 跟进状态 | 是否成交 | 核心原因 | 距上次跟进(天) | 最近跟进①日期 | 最近跟进①内容 | 最近跟进②日期 | 最近跟进②内容 | 最近跟进③日期 | 最近跟进③内容
+**Sheet 1 `客户总表`**：序号 | 首次询盘时间 | 客户名称 | 邮箱 | 电话 | 地址 | 咨询产品 | 产品型号 | 国家 | 公司名 | 主营业务 | 成立时间 | 团队规模 | 年营收 | 跟进状态 | 是否成交 | 核心原因 | 距上次跟进(天) | 最近跟进①日期 | 最近跟进①内容 | 最近跟进②日期 | 最近跟进②内容 | 最近跟进③日期 | 最近跟进③内容
 
-**Sheet 2 `跟进明细`**：序号 | 首次询盘时间 | 客户名称 | 公司名 | 主营业务 | 国家 | 跟进日期 | 距今天数 | 跟进内容 | 跟进状态 | 是否成交（每个客户每条跟进一行，倒序）。
+**Sheet 2 `跟进明细`**：序号 | 首次询盘时间 | 客户名称 | 邮箱 | 电话 | 公司名 | 主营业务 | 国家 | 跟进日期 | 距今天数 | 跟进内容 | 跟进状态 | 是否成交（每个客户每条跟进一行，倒序，共 13 列）。
 
 `opts`：`{ filename?: string, today: 'YYYY-MM-DD', title?: string }`。默认文件名 `客户跟进台账_YYYYMMDD_HHmm.xlsx`（本地时间）。
 
@@ -298,13 +302,13 @@ window.CrmXlsx = {
 - XML 转义 `& < > " '`；剔除 XML 非法控制字符；空单元格不写；数字单元格不写 `t`；日期一律**文本** `YYYY-MM-DD`（避免 Excel 日期序列/本地化坑）。
 - 表头：加粗白字、深蓝底 `#0B2239`、居中；表头行高 24；首行冻结 + 自动筛选（`autoFilter` 覆盖整个数据区）；列宽按 `columns[].width`，`核心原因`/跟进内容 `wrapText`。
 - 中文文件名与 UTF-8 内容必须正确；不得出现乱码或「文件已损坏」。
-- 大数据量：500 行 × 21 列 < 300ms。
+- 大数据量：500 行 × 24 列 < 300ms。
 - 浏览器与 Node 双端可用：Node 下 `module.exports = api`（用 `TextEncoder` / `Uint8Array`，不要用 `document`/`Blob` 在 Node 分支里）。
 
 ### 6.3 验收（`tests/test-xlsx.mjs`）
 
 1. 生成 8 条示例客户的数据 → 写出 `%TEMP%/crm-export-test.xlsx`。
-2. 用 Python openpyxl 校验（`load_worksheet` 读取）：工作表名、表头 21 列文本、行数、中文值、新列（产品型号/主营业务）、冻结窗格、列宽、`autoFilter` 引用、`zipfile.testzip()` 返回 `None`。
+2. 用 Python openpyxl 校验（`load_worksheet` 读取）：工作表名、表头 **24 列**文本、行数、中文值、新列（邮箱/电话/地址/产品型号/主营业务）、冻结窗格、列宽、`autoFilter` 引用（`A1:X{n}` / `A1:M{n}`）、`zipfile.testzip()` 返回 `None`。
 3. 断言 `bytes.length > 3000` 且以 `PK\x03\x04` 开头。
 4. 至少 3 个单测：空记录、超长中文、特殊字符 `<&"'>` 与换行。
 
@@ -327,7 +331,7 @@ window.CrmXlsx = {
 
 **仪表盘（v1.1 国家分布改扇形图）**：`.stats-grid .stat-card .stat-card--ok .stat-card--warn .stat-card--danger .stat-icon .stat-body .stat-label .stat-value .stat-hint .card .card-head .card-title .card-sub .card-actions .card-body .pie-chart .pie-figure .pie-svg .pie-slice .pie-center .pie-total .pie-total-label .pie-legend .legend-item .legend-dot .legend-name .legend-value .legend-pct .bar-list .bar-row .bar-meta .bar-track .bar-fill .bar-fill--ok .bar-fill--warn .bar-fill--danger .timeline .timeline-item .timeline-dot .timeline-body .timeline-date .timeline-text`
 
-**客户台账**：`.toolbar .toolbar-left .toolbar-right .search-box .search-input .filter-select .select--sm .count-pill .table-wrap .data-table .data-table--customers .row .row--expanded .row-detail .row-toggle .col-expand .cell-strong .cell-muted .cell-sub .cell-num .cell-product .cell-reason .cell-country .flag .badge .badge--ok .badge--warn .badge--danger .badge--info .badge--brand .badge--neutral .age .age--ok .age--warn .age--danger .age--none .followup-strip .followup-chip .followup-date .followup-note .row-actions .icon-btn--sm .icon-btn--danger .sort-btn .is-active .empty .empty-art .empty-title .empty-text .empty-actions .table-footer .table-count .data-table th[data-col] .data-table td[data-col]`
+**客户台账**：`.toolbar .toolbar-left .toolbar-right .search-box .search-input .filter-select .select--sm .count-pill .table-wrap .data-table .data-table--customers .row .row--expanded .row-detail .row-toggle .col-expand .cell-strong .cell-muted .cell-sub .cell-main .cell-contact .cell-address .contact-link .cell-num .cell-product .cell-reason .cell-country .flag .badge .badge--ok .badge--warn .badge--danger .badge--info .badge--brand .badge--neutral .age .age--ok .age--warn .age--danger .age--none .followup-strip .followup-chip .followup-date .followup-note .row-actions .icon-btn--sm .icon-btn--danger .sort-btn .is-active .empty .empty-art .empty-title .empty-text .empty-actions .table-footer .table-count .data-table th[data-col] .data-table td[data-col]`
 
 **表单（含 v1.1 产品选择器）**：`.form-grid .field .field--full .field--split .field-label .req .field-hint .field-error .input .select .textarea .textarea--lg .form-section .form-section-title .followup-editor .followup-row .followup-empty .chip-row .chip .chip.is-active .input-group .product-picker .product-picker-name .product-picker-model .product-custom .product-add-btn`
 
@@ -341,10 +345,10 @@ window.CrmXlsx = {
 
 ### 7.3 响应式与打印
 
-表格列优先级（v1.0 定稿，`app.js` 输出 14 列，`.data-table--customers` 按属性选择器显隐）：
+表格列优先级（v1.2，`app.js` 输出 16 列，`.data-table--customers` 按属性选择器显隐）：
 
-- `>= 1600px`：显示全部列（14 个数据列 + 展开列 + 操作列），`.row-detail-meta` 隐藏。
-- `1280 ~ 1599px`（含 1440 笔记本）：**v1.1 宽版台账**——`body.route-customers` 下 `.view-inner{max-width:1720px}`、内边距收窄。隐藏 `[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`（这三项在行展开的 `.row-detail-meta` 中展示），`.data-table--customers { min-width: 1328px }`；首屏可见「首次询盘时间 → 距上次跟进 → 客户名称 → 咨询产品（含型号）→ 国家 → 公司名 → 主营业务 → 跟进状态 → 是否成交」，核心原因横向滚动，操作列右侧固定。
+- `>= 1600px`：显示全部列（16 个数据列 + 展开列 + 操作列），`.row-detail-meta` 隐藏。
+- `1280 ~ 1599px`（含 1440 笔记本）：**宽版台账**——`body.route-customers` 下 `.view-inner{max-width:1720px}`、内边距收窄。隐藏 `[data-col="address"]`、`[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`（这四项在行展开的 `.row-detail-meta` 中展示），`.data-table--customers { min-width: 1313px }`；首屏可见「首次询盘时间 → 距上次跟进 → 客户名称（含邮箱/电话副行）→ 咨询产品（含型号）→ 国家 → 公司名 → 主营业务 → 跟进状态 → 是否成交」，核心原因横向滚动，操作列右侧固定。
 - `< 1024px`：侧栏默认隐藏（`transform: translateX(-100%)`，`.is-open` 滑入 + 背景遮罩）。
 - `< 768px`：再隐藏 `[data-col="product"]`、`[data-col="mainBusiness"]`、`[data-col="companyName"]`、`[data-col="coreReason"]`；`.toolbar` 换行；表格横向滚动，禁止整页横向溢出（`body` 不能出现 x 轴滚动条）。
 - 右侧固定列（`[data-col="age"]` 不固定、`.col-actions` 固定）背景必须不透明，行 hover / 展开态的固定列背景同步。
@@ -409,14 +413,15 @@ window.CustomerCRM = {
 - E2E：`node tests/e2e.mjs`（qa-dev）用 `tests/cdp.mjs` 启动本地静态服务 + headless Chrome，覆盖：
   1. 首屏加载无 console error / pageerror；
   2. 仪表盘 4 个统计卡数值 = store 计算值；**v1.1：国家分布为 SVG 扇形图**（`[data-testid="country-pie"]` 内 `.pie-slice` 数量 = 国家数（≤6 + 其他）、图例项数一致、百分比合计 ≈100%、中心数字 = 客户总数）；
-  3. 新建客户（表单校验：名称/日期必填）→ 表格出现 → 刷新仍在；**v1.1 新增字段「主营业务」「产品型号」保存并回显**；
+  3. 新建客户（表单校验：名称/日期必填）→ 表格出现 → 刷新仍在；新增字段「主营业务」「产品型号」「邮箱/电话/地址」保存并回显；非法邮箱被拦；
   4. 编辑、删除、添加跟进（最多 3 条、最新在前、距上次跟进数字正确）；
-  5. **v1.1 产品库**：新建客户时从下拉选择「产品名称 + 型号」→ 保存后表格显示名称与型号；设置页新增/删除产品后下拉选项同步；
-  6. 搜索/国家/状态/成交筛选 + 排序；主营业务与产品型号参与搜索；
-  7. 智能识别：粘贴 `CrmParser.SAMPLE_TEXTS[0].text` → 结果面板 ≥ 8 项 → 填入表单 → 保存 → 表格字段正确；
-  8. 一键导出：拦截下载，文件存在且 `PK` 头、openpyxl 可读、含两个工作表、**21 列表头**、行数正确、产品型号/主营业务列有值；
-  9. 响应式：1440/1024/768/390 四档无横向溢出、控制台无错；**v1.1 宽版台账**：`body.route-customers` 下内容宽度明显大于其他页（≥1140px @1440）；
-  10. 截图：`screenshots/dashboard.png` 等 8 张。
+  5. **产品库**：新建客户时从下拉选择「产品名称 + 型号」→ 保存后表格显示名称与型号；设置页新增/删除产品后下拉选项同步；
+  6. 搜索/国家/状态/成交筛选 + 排序；邮箱/电话/地址、主营业务与产品型号参与搜索；
+  7. 智能识别：粘贴 `CrmParser.SAMPLE_TEXTS[0].text` → 结果面板 16 项、filled≥15（含邮箱/电话/地址/型号/主营业务）→ 填入表单 → 保存 → 表格字段正确；
+  8. 一键导出：拦截下载，文件存在且 `PK` 头、openpyxl 可读、含两个工作表、**24 列表头（D=邮箱 E=电话 F=地址）**、13 列明细、行数正确、新列有值；
+  9. 响应式：1440/1024/768/390 四档无横向溢出、控制台无错；**宽版台账**：`body.route-customers` 下内容宽度明显大于其他页（≥1120px @1440），表格 min-width 1313；
+  10. 展开行：`.row-detail-meta` 含邮箱/电话/地址，邮箱为 `mailto:`、电话为 `tel:` 链接；打印媒体恢复 address 列且联系方式可读；
+  11. 截图：`screenshots/dashboard.png` 等 8 张。
 - 验收报告：`tests/QA_REPORT.md`（用例表 + 结果 + 已知问题 + 截图索引）。
 
 ## 10. 协作规则

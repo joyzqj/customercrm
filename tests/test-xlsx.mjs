@@ -4,10 +4,10 @@
  *
  * 校验 js/xlsx.js（window.CrmXlsx）：
  *   1. 真实生成 .xlsx 到系统临时目录（主产物 %TEMP%/crm-export-test.xlsx）；
- *   2. 用 Python + openpyxl 读回：工作表名、21/11 列表头、行数、中文值、冻结窗格、
+ *   2. 用 Python + openpyxl 读回：工作表名、24/13 列表头、行数、中文值、冻结窗格、
  *      autoFilter 覆盖数据区、列宽、表头样式、换行、数字单元格、zipfile.testzip()；
  *   3. 至少 4 个场景：8 条示例客户、空记录、超长中文（500 字）、特殊字符与换行；
- *   4. 底层 buildWorkbook、浏览器 download 的 Node 行为、500 行 × 21 列性能。
+ *   4. 底层 buildWorkbook、浏览器 download 的 Node 行为、500 行 × 24 列性能。
  *
  * 任何断言失败 → exit 1 并打印失败明细；全部通过 → exit 0。
  */
@@ -664,6 +664,9 @@ function makeRecord(overrides) {
     id: 'c_test',
     firstInquiryAt: '2026-09-12',
     customerName: '',
+    email: '',
+    phone: '',
+    address: '',
     product: '',
     productModel: '',
     country: '',
@@ -685,6 +688,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-09-12',
     customerName: 'Michael Braun',
+    email: 'm.braun@braun-trading.de',
+    phone: '+49 711 4567 890',
+    address: 'Industriestr. 12, 70565 Stuttgart, Germany',
     companyName: 'Braun Trading GmbH',
     country: '德国',
     product: '不锈钢保温杯 500ml（定制 LOGO）',
@@ -705,6 +711,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-10-05',
     customerName: 'Ahmed Hassan',
+    email: 'a.hassan@elnile-import.com',
+    phone: '+20 100 234 5678',
+    address: '25 Nile Corniche, Cairo 11511, Egypt',
     companyName: 'El Nile Import & Export Co., Ltd',
     country: '埃及',
     product: '陶瓷餐具套装 16 件套',
@@ -725,6 +734,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-08-08',
     customerName: 'Sophie Martin',
+    email: 's.martin@martincuisine.fr',
+    phone: '+33 4 78 12 34 56',
+    address: '22 Rue de la République, 69002 Lyon, France',
     companyName: 'Maison Martin SAS',
     country: '法国',
     product: '硅胶厨具套装 12 件套',
@@ -744,6 +756,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-07-15',
     customerName: 'Yuki Tanaka',
+    email: 'y.tanaka@tanaka-trading.jp',
+    phone: '+81 3 1234 5678',
+    address: '2-1-1 Uchisaiwaicho, Chiyoda-ku, Tokyo 100-0011, Japan',
     companyName: 'Tanaka Trading Co., Ltd.',
     country: '日本',
     product: '保温饭盒 1.2L',
@@ -766,6 +781,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-09-30',
     customerName: 'Carlos Silva',
+    email: 'lucas@silvacomercio.com.br',
+    phone: '+55 11 98765 4321',
+    address: 'Av. Paulista 1500, São Paulo 01310-100, Brazil',
     companyName: 'Silva Comércio Ltda',
     country: '巴西',
     product: '不锈钢水壶 750ml',
@@ -798,6 +816,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-06-01',
     customerName: 'Rajesh Kumar',
+    email: 'r.kumar@kumarexports.in',
+    phone: '+91 22 4000 1234',
+    address: 'Plot 12, MIDC Andheri East, Mumbai 400093, India',
     companyName: 'Kumar Exports Pvt. Ltd',
     country: '印度',
     product: '不锈钢运动水壶 1L',
@@ -817,6 +838,9 @@ const SAMPLE_RECORDS = [
   makeRecord({
     firstInquiryAt: '2026-10-12',
     customerName: 'Lars Nielsen',
+    email: 'lars@nielsennordic.dk',
+    phone: '+45 33 12 34 56',
+    address: 'Bredgade 24, 1260 København K, Denmark',
     companyName: 'Nielsen Nordic ApS',
     country: '丹麦',
     product: '保温杯 OEM（客户品牌）',
@@ -835,13 +859,14 @@ const SAMPLE_RECORDS = [
 ];
 
 const TOTAL_HEADERS = [
-  '序号', '首次询盘时间', '客户名称', '咨询产品', '产品型号', '国家', '公司名', '主营业务',
+  '序号', '首次询盘时间', '客户名称', '邮箱', '电话', '地址', '咨询产品', '产品型号', '国家', '公司名', '主营业务',
   '成立时间', '团队规模', '年营收', '跟进状态', '是否成交', '核心原因', '距上次跟进(天)',
   '最近跟进①日期', '最近跟进①内容', '最近跟进②日期', '最近跟进②内容', '最近跟进③日期', '最近跟进③内容'
 ];
 
 const DETAIL_HEADERS = [
-  '序号', '首次询盘时间', '客户名称', '公司名', '主营业务', '国家', '跟进日期', '距今天数', '跟进内容', '跟进状态', '是否成交'
+  '序号', '首次询盘时间', '客户名称', '邮箱', '电话', '公司名', '主营业务', '国家',
+  '跟进日期', '距今天数', '跟进内容', '跟进状态', '是否成交'
 ];
 
 const TOTAL_FOLLOWUPS = 15; // 3+3+2+3+1+0+2+1
@@ -850,7 +875,7 @@ const TOTAL_FOLLOWUPS = 15; // 3+3+2+3+1+0+2+1
 /* 3. 场景 1：8 条示例客户                                             */
 /* ================================================================== */
 
-runCase('场景 1｜8 条示例客户：客户总表 21 列 + 跟进明细 11 列', () => {
+runCase('场景 1｜8 条示例客户：客户总表 24 列 + 跟进明细 13 列', () => {
   const result = xlsx.exportCustomers(SAMPLE_RECORDS, { today: TODAY });
   ok('返回 { filename, bytes }', !!(result && typeof result.filename === 'string' && result.bytes));
   ok('filename 为 客户跟进台账_YYYYMMDD_HHmm.xlsx',
@@ -880,11 +905,11 @@ runCase('场景 1｜8 条示例客户：客户总表 21 列 + 跟进明细 11 �
   const s2 = sheetOf(info, '跟进明细');
 
   /* ---- 客户总表 ---- */
-  eq('客户总表：表头 21 列文本完全一致', s1.headers, TOTAL_HEADERS);
-  eq('客户总表：列数 21', s1.max_col, 21);
+  eq('客户总表：表头 24 列文本完全一致', s1.headers, TOTAL_HEADERS);
+  eq('客户总表：列数 24', s1.max_col, 24);
   eq('客户总表：行数 = 记录数 + 1', s1.max_row, SAMPLE_RECORDS.length + 1);
   eq('客户总表：冻结窗格 A2', s1.freeze_panes, 'A2');
-  eq('客户总表：autoFilter 覆盖数据区 A1:U9', s1.auto_filter, 'A1:U9');
+  eq('客户总表：autoFilter 覆盖数据区 A1:X9', s1.auto_filter, 'A1:X9');
   eq('客户总表：表头行高 24', s1.header_height, 24);
   ok('客户总表：表头加粗', s1.header_bold === true);
   ok('客户总表：表头白字 FFFFFFFF', String(s1.header_font_color || '').toUpperCase().endsWith('FFFFFFFF'),
@@ -896,24 +921,33 @@ runCase('场景 1｜8 条示例客户：客户总表 21 列 + 跟进明细 11 �
 
   eq('列宽：序号 A = 8', s1.widths && s1.widths.A, 8);
   eq('列宽：客户名称 C = 20', s1.widths && s1.widths.C, 20);
-  eq('列宽：产品型号 E = 16', s1.widths && s1.widths.E, 16);
-  eq('列宽：主营业务 H = 22', s1.widths && s1.widths.H, 22);
-  eq('列宽：核心原因 N = 46', s1.widths && s1.widths.N, 46);
-  eq('列宽：21 列全部自定义', Object.keys(s1.widths || {}).length, 21);
+  eq('列宽：邮箱 D = 26', s1.widths && s1.widths.D, 26);
+  eq('列宽：电话 E = 20', s1.widths && s1.widths.E, 20);
+  eq('列宽：地址 F = 34', s1.widths && s1.widths.F, 34);
+  eq('列宽：产品型号 H = 16', s1.widths && s1.widths.H, 16);
+  eq('列宽：主营业务 K = 22', s1.widths && s1.widths.K, 22);
+  eq('列宽：核心原因 Q = 46', s1.widths && s1.widths.Q, 46);
+  eq('列宽：24 列全部自定义', Object.keys(s1.widths || {}).length, 24);
 
-  eq('正文：核心原因列 wrapText', s1.body_wrap && s1.body_wrap[13], true);
-  eq('正文：最近跟进①内容列 wrapText', s1.body_wrap && s1.body_wrap[16], true);
+  eq('正文：核心原因列 wrapText', s1.body_wrap && s1.body_wrap[16], true);
+  eq('正文：最近跟进①内容列 wrapText', s1.body_wrap && s1.body_wrap[19], true);
   eq('正文：客户名称列不换行', s1.body_wrap && s1.body_wrap[2], false);
-  eq('正文：产品型号列不换行', s1.body_wrap && s1.body_wrap[4], false);
-  eq('数字列：距上次跟进(天) 为数字单元格', s1.cell_types && s1.cell_types[0] && s1.cell_types[0][14], 'n');
+  eq('正文：邮箱列不换行', s1.body_wrap && s1.body_wrap[3], false);
+  eq('正文：地址列不换行', s1.body_wrap && s1.body_wrap[5], false);
+  eq('数字列：距上次跟进(天) 为数字单元格', s1.cell_types && s1.cell_types[0] && s1.cell_types[0][17], 'n');
   eq('文本列：客户名称为字符串单元格', s1.cell_types && s1.cell_types[0] && s1.cell_types[0][2], 's');
-  eq('文本列：产品型号为字符串单元格', s1.cell_types && s1.cell_types[0] && s1.cell_types[0][4], 's');
-  eq('数字格式：距上次跟进(天) numFmt = 0', s1.number_formats && s1.number_formats[0] && s1.number_formats[0][14], '0');
+  eq('文本列：邮箱/电话为字符串单元格', [s1.cell_types && s1.cell_types[0] && s1.cell_types[0][3],
+    s1.cell_types && s1.cell_types[0] && s1.cell_types[0][4]], ['s', 's']);
+  eq('文本列：地址为字符串单元格', s1.cell_types && s1.cell_types[0] && s1.cell_types[0][5], 's');
+  eq('数字格式：距上次跟进(天) numFmt = 0', s1.number_formats && s1.number_formats[0] && s1.number_formats[0][17], '0');
 
-  eq('第 1 行内容（21 列全字段）', s1.rows && s1.rows[0], [
+  eq('第 1 行内容（24 列全字段）', s1.rows && s1.rows[0], [
     1,
     '2026-09-12',
     'Michael Braun',
+    'm.braun@braun-trading.de',
+    '+49 711 4567 890',
+    'Industriestr. 12, 70565 Stuttgart, Germany',
     '不锈钢保温杯 500ml（定制 LOGO）',
     '500ml',
     '德国',
@@ -933,53 +967,66 @@ runCase('场景 1｜8 条示例客户：客户总表 21 列 + 跟进明细 11 �
     '2026-10-28',
     '首次邮件回复，发送价目表与产品册'
   ]);
-  eq('新列取值：产品型号（第 2 条记录）', s1.rows && s1.rows[1][4], '16 件套');
-  eq('新列取值：主营业务（第 2 条记录）', s1.rows && s1.rows[1][7], '家居餐具进口分销');
-  eq('新列取值：第 4 条记录 产品型号/主营业务', [s1.rows && s1.rows[3][4], s1.rows && s1.rows[3][7]],
-    ['1.2L', '日用百货批发']);
-  eq('无跟进客户：产品型号/主营业务为空单元格（旧备份缺字段同口径）',
-    [s1.rows && s1.rows[5][4], s1.rows && s1.rows[5][7]], [null, null]);
+  eq('新列取值：邮箱/电话/地址（第 2 条记录）',
+    [s1.rows && s1.rows[1][3], s1.rows && s1.rows[1][4], s1.rows && s1.rows[1][5]],
+    ['a.hassan@elnile-import.com', '+20 100 234 5678', '25 Nile Corniche, Cairo 11511, Egypt']);
+  eq('新列取值：地址含中文（第 4 条记录）', [s1.rows && s1.rows[3][3], s1.rows && s1.rows[3][5]],
+    ['y.tanaka@tanaka-trading.jp', '2-1-1 Uchisaiwaicho, Chiyoda-ku, Tokyo 100-0011, Japan']);
+  eq('v1.1 列保持正确：产品型号/主营业务（第 2 条记录）',
+    [s1.rows && s1.rows[1][7], s1.rows && s1.rows[1][10]], ['16 件套', '家居餐具进口分销']);
+  eq('v1.1 列保持正确：第 4 条记录 产品型号/主营业务',
+    [s1.rows && s1.rows[3][7], s1.rows && s1.rows[3][10]], ['1.2L', '日用百货批发']);
+  eq('无跟进/缺联系方式客户：新列均为空单元格（旧备份缺字段同口径）',
+    [s1.rows && s1.rows[5][3], s1.rows && s1.rows[5][4], s1.rows && s1.rows[5][5],
+      s1.rows && s1.rows[5][7], s1.rows && s1.rows[5][10]],
+    [null, null, null, null, null]);
 
-  eq('跟进记录超过 3 条时截断为最近 3 条并按日期倒序', s1.rows && s1.rows[3].slice(15), [
+  eq('跟进记录超过 3 条时截断为最近 3 条并按日期倒序', s1.rows && s1.rows[3].slice(18), [
     '2026-11-15', '邮件确认交期改善方案，客户内部评审',
     '2026-11-05', '发送 45 天交期方案与补偿条款',
     '2026-10-22', '视频会议讨论 JIS 认证与包装'
   ]);
   ok('最早第 4 条跟进（2026-10-01）未导出',
-    !(s1.rows && s1.rows[3].slice(15).indexOf('2026-10-01') !== -1));
+    !(s1.rows && s1.rows[3].slice(18).indexOf('2026-10-01') !== -1));
 
-  eq('无跟进客户：距上次跟进及最近跟进三列为空', s1.rows && s1.rows[5].slice(14),
+  eq('无跟进客户：距上次跟进及最近跟进三列为空', s1.rows && s1.rows[5].slice(17),
     [null, null, null, null, null, null, null]);
   eq('无跟进客户：跟进状态/成交状态正常',
-    [s1.rows && s1.rows[5][2], s1.rows && s1.rows[5][11], s1.rows && s1.rows[5][12]],
+    [s1.rows && s1.rows[5][2], s1.rows && s1.rows[5][14], s1.rows && s1.rows[5][15]],
     ['Emily Chen', '新询盘', '未成交']);
-  eq('距上次跟进天数：第 2 条记录 = 1', s1.rows && s1.rows[1][14], 1);
-  eq('距上次跟进天数：第 7 条记录 = 62', s1.rows && s1.rows[6][14], 62);
-  eq('距上次跟进天数：第 8 条记录 = 20', s1.rows && s1.rows[7][14], 20);
+  eq('距上次跟进天数：第 2 条记录 = 1', s1.rows && s1.rows[1][17], 1);
+  eq('距上次跟进天数：第 7 条记录 = 62', s1.rows && s1.rows[6][17], 62);
+  eq('距上次跟进天数：第 8 条记录 = 20', s1.rows && s1.rows[7][17], 20);
 
   /* ---- 跟进明细 ---- */
-  eq('跟进明细：表头 11 列文本完全一致', s2.headers, DETAIL_HEADERS);
-  eq('跟进明细：列数 11', s2.max_col, 11);
+  eq('跟进明细：表头 13 列文本完全一致', s2.headers, DETAIL_HEADERS);
+  eq('跟进明细：列数 13', s2.max_col, 13);
   eq('跟进明细：行数 = 跟进总数 + 1', s2.max_row, TOTAL_FOLLOWUPS + 1);
   eq('跟进明细：冻结窗格 A2', s2.freeze_panes, 'A2');
-  eq('跟进明细：autoFilter A1:K16', s2.auto_filter, 'A1:K16');
+  eq('跟进明细：autoFilter A1:M16', s2.auto_filter, 'A1:M16');
   eq('跟进明细：表头行高 24', s2.header_height, 24);
   eq('跟进明细：序号连续 1..15', (s2.rows || []).map((row) => row[0]),
     Array.from({ length: TOTAL_FOLLOWUPS }, (unused, index) => index + 1));
-  eq('跟进明细：跟进内容列 wrapText', s2.body_wrap && s2.body_wrap[8], true);
-  eq('跟进明细：主营业务列不换行', s2.body_wrap && s2.body_wrap[4], false);
-  eq('跟进明细：列宽 I = 60', s2.widths && s2.widths.I, 60);
-  eq('跟进明细：列宽 E（主营业务）= 22', s2.widths && s2.widths.E, 22);
-  eq('跟进明细：11 列全部自定义', Object.keys(s2.widths || {}).length, 11);
+  eq('跟进明细：跟进内容列 wrapText', s2.body_wrap && s2.body_wrap[10], true);
+  eq('跟进明细：主营业务列不换行', s2.body_wrap && s2.body_wrap[6], false);
+  eq('跟进明细：邮箱列不换行', s2.body_wrap && s2.body_wrap[3], false);
+  eq('跟进明细：列宽 K = 60', s2.widths && s2.widths.K, 60);
+  eq('跟进明细：列宽 D（邮箱）= 26 / E（电话）= 20 / G（主营业务）= 22',
+    [s2.widths && s2.widths.D, s2.widths && s2.widths.E, s2.widths && s2.widths.G], [26, 20, 22]);
+  eq('跟进明细：13 列全部自定义', Object.keys(s2.widths || {}).length, 13);
   eq('跟进明细：第 1 行 = 迈克尔最近一条跟进', s2.rows && s2.rows[0], [
-    1, '2026-09-12', 'Michael Braun', 'Braun Trading GmbH', '户外用品进口分销', '德国',
+    1, '2026-09-12', 'Michael Braun', 'm.braun@braun-trading.de', '+49 711 4567 890',
+    'Braun Trading GmbH', '户外用品进口分销', '德国',
     '2026-11-18', 3, '邮件确认样品尺寸与 LOGO 印刷位置，等寄样确认', '已报价', '未成交'
   ]);
   eq('跟进明细：第 4 行 = 艾哈迈德最近一条跟进', s2.rows && s2.rows[3], [
-    4, '2026-10-05', 'Ahmed Hassan', 'El Nile Import & Export Co., Ltd', '家居餐具进口分销', '埃及',
+    4, '2026-10-05', 'Ahmed Hassan', 'a.hassan@elnile-import.com', '+20 100 234 5678',
+    'El Nile Import & Export Co., Ltd', '家居餐具进口分销', '埃及',
     '2026-11-20', 1, 'WhatsApp 回复，确认 300 万美元年采购额并索取 PI', '已回复', '未成交'
   ]);
-  eq('跟进明细：主营业务列取值（第 4 行）', s2.rows && s2.rows[3][4], '家居餐具进口分销');
+  eq('跟进明细：主营/邮箱/电话列取值（第 4 行）',
+    [s2.rows && s2.rows[3][3], s2.rows && s2.rows[3][4], s2.rows && s2.rows[3][6]],
+    ['a.hassan@elnile-import.com', '+20 100 234 5678', '家居餐具进口分销']);
   eq('跟进明细：每个客户一行/条且按客户分组', (s2.rows || []).map((row) => row[2]), [
     'Michael Braun', 'Michael Braun', 'Michael Braun',
     'Ahmed Hassan', 'Ahmed Hassan', 'Ahmed Hassan',
@@ -989,7 +1036,7 @@ runCase('场景 1｜8 条示例客户：客户总表 21 列 + 跟进明细 11 �
     'Rajesh Kumar', 'Rajesh Kumar',
     'Lars Nielsen'
   ]);
-  eq('跟进明细：距今天数正确（第 12 行 = 62）', s2.rows && s2.rows[12][7], 62);
+  eq('跟进明细：距今天数正确（第 12 行 = 62）', s2.rows && s2.rows[12][9], 62);
   eq('跟进明细：无跟进客户不产生明细行（共 15 行）', s2.max_row, 16);
 });
 
@@ -1010,12 +1057,12 @@ runCase('场景 2｜空记录：空数组 + 默认空记录', () => {
     const s1 = sheetOf(info, '客户总表');
     const s2 = sheetOf(info, '跟进明细');
     eq('空数组：客户总表仅表头（1 行）', s1.max_row, 1);
-    eq('空数组：客户总表表头 21 列', s1.headers, TOTAL_HEADERS);
+    eq('空数组：客户总表表头 24 列', s1.headers, TOTAL_HEADERS);
     eq('空数组：客户总表冻结 A2', s1.freeze_panes, 'A2');
-    eq('空数组：客户总表 autoFilter 覆盖表头行', s1.auto_filter, 'A1:U1');
+    eq('空数组：客户总表 autoFilter 覆盖表头行', s1.auto_filter, 'A1:X1');
     eq('空数组：跟进明细仅表头（1 行）', s2.max_row, 1);
-    eq('空数组：跟进明细表头 11 列', s2.headers, DETAIL_HEADERS);
-    eq('空数组：跟进明细 autoFilter', s2.auto_filter, 'A1:K1');
+    eq('空数组：跟进明细表头 13 列', s2.headers, DETAIL_HEADERS);
+    eq('空数组：跟进明细 autoFilter', s2.auto_filter, 'A1:M1');
   } else {
     return;
   }
@@ -1033,11 +1080,12 @@ runCase('场景 2｜空记录：空数组 + 默认空记录', () => {
   eq('默认空记录：首次询盘时间 = today', s1.rows && s1.rows[0][1], TODAY);
   eq('默认空记录：客户名称等文本为空单元格',
     [s1.rows && s1.rows[0][2], s1.rows && s1.rows[0][3], s1.rows && s1.rows[0][4],
-      s1.rows && s1.rows[0][6], s1.rows && s1.rows[0][7], s1.rows && s1.rows[0][13]],
-    [null, null, null, null, null, null]);
-  eq('默认空记录：跟进状态/成交状态默认枚举', [s1.rows && s1.rows[0][11], s1.rows && s1.rows[0][12]],
+      s1.rows && s1.rows[0][5], s1.rows && s1.rows[0][6], s1.rows && s1.rows[0][7],
+      s1.rows && s1.rows[0][9], s1.rows && s1.rows[0][10], s1.rows && s1.rows[0][16]],
+    [null, null, null, null, null, null, null, null, null]);
+  eq('默认空记录：跟进状态/成交状态默认枚举', [s1.rows && s1.rows[0][14], s1.rows && s1.rows[0][15]],
     ['新询盘', '未成交']);
-  eq('默认空记录：距上次跟进与最近跟进列为空', s1.rows && s1.rows[0].slice(14),
+  eq('默认空记录：距上次跟进与最近跟进列为空', s1.rows && s1.rows[0].slice(17),
     [null, null, null, null, null, null, null]);
   eq('默认空记录：跟进明细仅表头', sheetOf(blankInfo, '跟进明细').max_row, 1);
 });
@@ -1070,12 +1118,12 @@ runCase('场景 3｜超长中文 500 字：客户总表核心原因列', () => {
   eq('500 字场景：ZIP 完整', info.testzip, null);
   const s1 = sheetOf(info, '客户总表');
   eq('500 字场景：行数 2', s1.max_row, 2);
-  eq('500 字场景：核心原因 500 字完整保留', s1.rows && s1.rows[0][13], longText);
-  eq('500 字场景：核心原因长度 = 500', s1.rows && s1.rows[0][13] && s1.rows[0][13].length, 500);
+  eq('500 字场景：核心原因 500 字完整保留', s1.rows && s1.rows[0][16], longText);
+  eq('500 字场景：核心原因长度 = 500', s1.rows && s1.rows[0][16] && s1.rows[0][16].length, 500);
   eq('500 字场景：中文值未被破坏', s1.rows && s1.rows[0][2], '超长文本客户');
-  eq('500 字场景：核心原因列 wrapText', s1.body_wrap && s1.body_wrap[13], true);
+  eq('500 字场景：核心原因列 wrapText', s1.body_wrap && s1.body_wrap[16], true);
   eq('500 字场景：跟进明细正常', sheetOf(info, '跟进明细').max_row, 2);
-  eq('500 字场景：跟进内容正常', sheetOf(info, '跟进明细').rows && sheetOf(info, '跟进明细').rows[0][8],
+  eq('500 字场景：跟进内容正常', sheetOf(info, '跟进明细').rows && sheetOf(info, '跟进明细').rows[0][10],
     '常规跟进，客户已收到样册');
 });
 
@@ -1085,16 +1133,26 @@ runCase('场景 3｜超长中文 500 字：客户总表核心原因列', () => {
 
 runCase('场景 4｜特殊字符 <&"\'>、换行、制表符与控制字符', () => {
   const SPECIAL_NAME = "A<&\"'>B\nC <tag> & \"quote\" 'single'";
+  const SPECIAL_EMAIL = 'A<&"\'>B@example.com';
+  const SPECIAL_PHONE = '+49 <&"\'> 123\n分机 9';
+  const SPECIAL_ADDRESS = '地址 <&"\'> 第一行\n第二行 & "quote"';
   const SPECIAL_PRODUCT = 'line1\nline2\r\nline3';
+  const SPECIAL_MODEL = '型号 <&"\' >';
+  const SPECIAL_BUSINESS = '主营 <&"\' >';
   const SPECIAL_REASON = '控制\u0000字符\u0007测试\u000B制表\t符';
   const SPECIAL_NOTE = '第一行\n第二行 <&"\'> 结束';
 
   const record = makeRecord({
     firstInquiryAt: '2026-11-01',
     customerName: SPECIAL_NAME,
+    email: SPECIAL_EMAIL,
+    phone: SPECIAL_PHONE,
+    address: SPECIAL_ADDRESS,
     companyName: 'Special <Chars> & "Quotes" Co.',
     country: '德国',
     product: SPECIAL_PRODUCT,
+    productModel: SPECIAL_MODEL,
+    mainBusiness: SPECIAL_BUSINESS,
     followupStatus: '已回复',
     dealStatus: '未成交',
     coreReason: SPECIAL_REASON,
@@ -1111,11 +1169,18 @@ runCase('场景 4｜特殊字符 <&"\'>、换行、制表符与控制字符', ()
   const s1 = sheetOf(info, '客户总表');
   const s2 = sheetOf(info, '跟进明细');
   eq('特殊字符：客户名称原样读回（<&"\'> 与换行）', s1.rows && s1.rows[0][2], SPECIAL_NAME);
-  eq('特殊字符：公司名特殊字符原样读回', s1.rows && s1.rows[0][6], 'Special <Chars> & "Quotes" Co.');
-  eq('特殊字符：\\r\\n 归一为 \\n', s1.rows && s1.rows[0][3], 'line1\nline2\nline3');
-  eq('特殊字符：XML 非法控制字符被剔除、制表符保留', s1.rows && s1.rows[0][13], '控制字符测试制表\t符');
-  eq('特殊字符：最近跟进内容中的换行与特殊字符原样保留', s1.rows && s1.rows[0][16], SPECIAL_NOTE);
-  eq('特殊字符：跟进明细内容读回一致', s2.rows && s2.rows[0][8], SPECIAL_NOTE);
+  eq('特殊字符：邮箱特殊字符原样读回', s1.rows && s1.rows[0][3], SPECIAL_EMAIL);
+  eq('特殊字符：电话换行归一 + 特殊字符原样读回', s1.rows && s1.rows[0][4], SPECIAL_PHONE);
+  eq('特殊字符：地址换行与特殊字符原样读回', s1.rows && s1.rows[0][5], SPECIAL_ADDRESS);
+  eq('特殊字符：\\r\\n 归一为 \\n（咨询产品）', s1.rows && s1.rows[0][6], 'line1\nline2\nline3');
+  eq('特殊字符：产品型号原样读回', s1.rows && s1.rows[0][7], SPECIAL_MODEL);
+  eq('特殊字符：公司名特殊字符原样读回', s1.rows && s1.rows[0][9], 'Special <Chars> & "Quotes" Co.');
+  eq('特殊字符：主营业务原样读回', s1.rows && s1.rows[0][10], SPECIAL_BUSINESS);
+  eq('特殊字符：XML 非法控制字符被剔除、制表符保留', s1.rows && s1.rows[0][16], '控制字符测试制表\t符');
+  eq('特殊字符：最近跟进内容中的换行与特殊字符原样保留', s1.rows && s1.rows[0][19], SPECIAL_NOTE);
+  eq('特殊字符：跟进明细内容读回一致', s2.rows && s2.rows[0][10], SPECIAL_NOTE);
+  eq('特殊字符：跟进明细邮箱/电话读回一致', [s2.rows && s2.rows[0][3], s2.rows && s2.rows[0][4]],
+    [SPECIAL_EMAIL, SPECIAL_PHONE]);
 });
 
 /* ================================================================== */
@@ -1127,6 +1192,9 @@ runCase('场景 5｜入参兼容：原始记录 / 已派生记录（last3 + days
   const derivedRecord = makeRecord({
     firstInquiryAt: '2026-10-01',
     customerName: '派生字段客户',
+    email: 'derived@example.com',
+    phone: '+49 30 1234 5678',
+    address: 'Derived Str. 1, 10115 Berlin, Germany',
     companyName: 'Derived Trading Ltd',
     country: '德国',
     product: '不锈钢保温杯',
@@ -1150,18 +1218,23 @@ runCase('场景 5｜入参兼容：原始记录 / 已派生记录（last3 + days
   if (derivedInfo) {
     const s1 = sheetOf(derivedInfo, '客户总表');
     const s2 = sheetOf(derivedInfo, '跟进明细');
-    eq('已派生记录：距上次跟进(天) = 3', s1.rows && s1.rows[0][14], 3);
-    eq('已派生记录：产品型号/主营业务正常导出', [s1.rows && s1.rows[0][4], s1.rows && s1.rows[0][7]],
-      ['500ml', '户外用品进口分销']);
-    eq('已派生记录：最近跟进①②③ 完整导出', s1.rows && s1.rows[0].slice(15), [
+    eq('已派生记录：距上次跟进(天) = 3', s1.rows && s1.rows[0][17], 3);
+    eq('已派生记录：联系方式/产品型号/主营业务正常导出',
+      [s1.rows && s1.rows[0][3], s1.rows && s1.rows[0][4], s1.rows && s1.rows[0][5],
+        s1.rows && s1.rows[0][7], s1.rows && s1.rows[0][10]],
+      ['derived@example.com', '+49 30 1234 5678', 'Derived Str. 1, 10115 Berlin, Germany',
+        '500ml', '户外用品进口分销']);
+    eq('已派生记录：最近跟进①②③ 完整导出', s1.rows && s1.rows[0].slice(18), [
       '2026-11-18', '派生：最近一次跟进',
       '2026-11-10', '派生：第二次跟进',
       '2026-10-28', '派生：第一次跟进'
     ]);
     eq('已派生记录：跟进明细 4 行（表头 + 3）', s2.max_row, 4);
-    eq('已派生记录：明细距今天数', (s2.rows || []).map((row) => row[7]), [3, 11, 24]);
-    eq('已派生记录：明细主营业务列', (s2.rows || []).map((row) => row[4]),
+    eq('已派生记录：明细距今天数', (s2.rows || []).map((row) => row[9]), [3, 11, 24]);
+    eq('已派生记录：明细主营业务列', (s2.rows || []).map((row) => row[6]),
       ['户外用品进口分销', '户外用品进口分销', '户外用品进口分销']);
+    eq('已派生记录：明细邮箱列', (s2.rows || []).map((row) => row[3]),
+      ['derived@example.com', 'derived@example.com', 'derived@example.com']);
   }
 
   /* 5.2 同时带 followups 和派生字段（CrmStore.deriveAll() 的真实形态）：以 followups 为准 */
@@ -1180,12 +1253,12 @@ runCase('场景 5｜入参兼容：原始记录 / 已派生记录（last3 + days
   const hybridInfo = readWorkbookOrFail(hybridFile, '混合形态记录');
   if (hybridInfo) {
     const h1 = sheetOf(hybridInfo, '客户总表');
-    eq('混合形态记录：以 followups 重算 daysSince', h1.rows && h1.rows[0][14], 20);
-    eq('混合形态记录：最近跟进①日期取自 followups', h1.rows && h1.rows[0][15], '2026-11-01');
-    eq('混合形态记录：最近跟进①内容取自 followups', h1.rows && h1.rows[0][16], '真实跟进记录');
+    eq('混合形态记录：以 followups 重算 daysSince', h1.rows && h1.rows[0][17], 20);
+    eq('混合形态记录：最近跟进①日期取自 followups', h1.rows && h1.rows[0][18], '2026-11-01');
+    eq('混合形态记录：最近跟进①内容取自 followups', h1.rows && h1.rows[0][19], '真实跟进记录');
   }
 
-  /* 5.3 旧备份记录：完全没有 productModel / mainBusiness 字段 → 新列为空单元格 */
+  /* 5.3 旧备份记录：完全没有 email / phone / address / productModel / mainBusiness → 新列为空单元格 */
   const legacyRecord = makeRecord({
     firstInquiryAt: '2026-09-12',
     customerName: '旧备份客户',
@@ -1194,6 +1267,9 @@ runCase('场景 5｜入参兼容：原始记录 / 已派生记录（last3 + days
     product: '保温杯',
     followups: [{ date: '2026-11-01', note: '旧备份跟进' }]
   });
+  delete legacyRecord.email;
+  delete legacyRecord.phone;
+  delete legacyRecord.address;
   delete legacyRecord.productModel;
   delete legacyRecord.mainBusiness;
 
@@ -1203,11 +1279,14 @@ runCase('场景 5｜入参兼容：原始记录 / 已派生记录（last3 + days
   if (legacyInfo) {
     const l1 = sheetOf(legacyInfo, '客户总表');
     const l2 = sheetOf(legacyInfo, '跟进明细');
-    eq('旧备份记录（缺新字段）：产品型号/主营业务为空单元格',
-      [l1.rows && l1.rows[0][4], l1.rows && l1.rows[0][7]], [null, null]);
-    eq('旧备份记录：原有字段照常导出', [l1.rows && l1.rows[0][2], l1.rows && l1.rows[0][6]],
+    eq('旧备份记录（缺 v1.1/v1.2 新字段）：邮箱/电话/地址/产品型号/主营业务为空单元格',
+      [l1.rows && l1.rows[0][3], l1.rows && l1.rows[0][4], l1.rows && l1.rows[0][5],
+        l1.rows && l1.rows[0][7], l1.rows && l1.rows[0][10]],
+      [null, null, null, null, null]);
+    eq('旧备份记录：原有字段照常导出', [l1.rows && l1.rows[0][2], l1.rows && l1.rows[0][9]],
       ['旧备份客户', 'Legacy Trading Ltd']);
-    eq('旧备份记录：明细主营业务为空单元格', l2.rows && l2.rows[0][4], null);
+    eq('旧备份记录：明细邮箱/主营业务为空单元格',
+      [l2.rows && l2.rows[0][3], l2.rows && l2.rows[0][6]], [null, null]);
   }
 });
 
@@ -1264,17 +1343,17 @@ runCase('场景 6｜buildWorkbook 底层接口 / download 的 Node 行为', () =
 });
 
 /* ================================================================== */
-/* 9. 场景 7：性能（500 行 × 21 列 < 300ms）                            */
+/* 9. 场景 7：性能（500 行 × 24 列 < 300ms）                            */
 /* ================================================================== */
 
-runCase('场景 7｜性能：500 行 × 21 列 < 300ms', () => {
-  /* 8.1 契约口径：单个 500 行 × 21 列工作表 */
-  const columns = Array.from({ length: 21 }, (unused, index) => ({
+runCase('场景 7｜性能：500 行 × 24 列 < 300ms', () => {
+  /* 8.1 契约口径：单个 500 行 × 24 列工作表 */
+  const columns = Array.from({ length: 24 }, (unused, index) => ({
     header: '列' + (index + 1),
     width: index === 0 ? 8 : 14
   }));
   const rows = Array.from({ length: 500 }, (unused, rowIndex) =>
-    Array.from({ length: 21 }, (ignored, colIndex) =>
+    Array.from({ length: 24 }, (ignored, colIndex) =>
       colIndex === 0 ? rowIndex + 1 : '值' + rowIndex + '-' + colIndex));
   const workSheet = { name: '压测', columns: columns, rows: rows, freeze: { rows: 1 }, autoFilter: true };
 
@@ -1286,15 +1365,18 @@ runCase('场景 7｜性能：500 行 × 21 列 < 300ms', () => {
     timings.push(performance.now() - startedAt);
   }
   const best = Math.min.apply(null, timings);
-  console.log('    耗时（500×21，三次）：' + timings.map((value) => value.toFixed(1)).join(' / ') + ' ms');
-  ok('buildWorkbook 500 行 × 21 列 < 300ms（三次取最优）', best < 300,
+  console.log('    耗时（500×24，三次）：' + timings.map((value) => value.toFixed(1)).join(' / ') + ' ms');
+  ok('buildWorkbook 500 行 × 24 列 < 300ms（三次取最优）', best < 300,
     '耗时 ' + timings.map((value) => value.toFixed(1)).join(' / ') + ' ms，最优 ' + best.toFixed(1) + 'ms');
   ok('压测工作簿体积正常（> 200KB）', stressBytes.length > 200000, stressBytes.length + ' 字节');
 
-  /* 8.2 完整导出（客户总表 500×21 + 跟进明细 1500×11） */
+  /* 8.2 完整导出（客户总表 500×24 + 跟进明细 1500×13） */
   const bigRecords = Array.from({ length: 500 }, (unused, index) => makeRecord({
     firstInquiryAt: '2026-09-12',
     customerName: '客户 ' + (index + 1),
+    email: 'customer' + (index + 1) + '@example.com',
+    phone: '+49 30 1234 ' + String(index + 1).padStart(4, '0'),
+    address: '示例路 ' + (index + 1) + ' 号, 10115 Berlin, Germany',
     companyName: '示例进出口贸易有限公司 ' + (index + 1),
     country: index % 2 === 0 ? '德国' : '美国',
     product: '不锈钢保温杯 500ml / 型号 ' + (index + 1),
@@ -1335,15 +1417,21 @@ runCase('场景 7｜性能：500 行 × 21 列 < 300ms', () => {
     const bigSheet1 = sheetOf(bigInfo, '客户总表');
     const bigSheet2 = sheetOf(bigInfo, '跟进明细');
     eq('大数据：ZIP 完整', bigInfo.testzip, null);
-    eq('大数据：客户总表 501 行 × 21 列', [bigSheet1.max_row, bigSheet1.max_col], [501, 21]);
-    eq('大数据：客户总表 autoFilter 覆盖 A1:U501', bigSheet1.auto_filter, 'A1:U501');
-    eq('大数据：跟进明细 1501 行 × 11 列', [bigSheet2.max_row, bigSheet2.max_col], [1501, 11]);
-    eq('大数据：跟进明细 autoFilter 覆盖 A1:K1501', bigSheet2.auto_filter, 'A1:K1501');
+    eq('大数据：客户总表 501 行 × 24 列', [bigSheet1.max_row, bigSheet1.max_col], [501, 24]);
+    eq('大数据：客户总表 autoFilter 覆盖 A1:X501', bigSheet1.auto_filter, 'A1:X501');
+    eq('大数据：跟进明细 1501 行 × 13 列', [bigSheet2.max_row, bigSheet2.max_col], [1501, 13]);
+    eq('大数据：跟进明细 autoFilter 覆盖 A1:M1501', bigSheet2.auto_filter, 'A1:M1501');
     eq('大数据：最后一条客户名正确', bigSheet1.rows && bigSheet1.rows[499][2], '客户 500');
     eq('大数据：最后一条明细序号 = 1500', bigSheet2.rows && bigSheet2.rows[1499][0], 1500);
-    eq('大数据：最后一条客户的新列（产品型号/主营业务）',
-      [bigSheet1.rows && bigSheet1.rows[499][4], bigSheet1.rows && bigSheet1.rows[499][7]],
-      ['型号-500', '户外用品进口分销（压测）']);
+    eq('大数据：最后一条客户的新列（邮箱/电话/地址/产品型号/主营业务）',
+      [bigSheet1.rows && bigSheet1.rows[499][3], bigSheet1.rows && bigSheet1.rows[499][4],
+        bigSheet1.rows && bigSheet1.rows[499][5], bigSheet1.rows && bigSheet1.rows[499][7],
+        bigSheet1.rows && bigSheet1.rows[499][10]],
+      ['customer500@example.com', '+49 30 1234 0500', '示例路 500 号, 10115 Berlin, Germany',
+        '型号-500', '户外用品进口分销（压测）']);
+    eq('大数据：最后一条明细的邮箱/电话',
+      [bigSheet2.rows && bigSheet2.rows[1499][3], bigSheet2.rows && bigSheet2.rows[1499][4]],
+      ['customer500@example.com', '+49 30 1234 0500']);
   }
 });
 

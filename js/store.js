@@ -163,20 +163,20 @@
     }
   ];
 
-  /* 示例客户的「产品名称 / 型号 / 主营业务」（与产品库预置数据对应） */
+  /* 示例客户的「产品名称 / 型号 / 主营业务 / 联系方式」（与产品库预置数据对应） */
   var DEMO_EXTRA = {
-    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销' },
-    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销' },
-    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售' },
-    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售' },
-    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商' },
-    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发' },
-    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销' },
-    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口' },
-    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购' },
-    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商' },
-    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁' },
-    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商' }
+    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销', email: 'm.braun@braun-trading.de', phone: '+49 711 4567 890', address: 'Industriestr. 12, 70565 Stuttgart, Germany' },
+    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销', email: 'e.rossi@rossiimport.it', phone: '+39 02 8765 4321', address: 'Via Brera 18, 20121 Milano, Italy' },
+    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售', email: 'a.hassan@elnile-import.com', phone: '+20 100 234 5678', address: '25 Nile Corniche, Cairo 11511, Egypt' },
+    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售', email: 's.thompson@thompsonhomewares.co.uk', phone: '+44 20 7946 0123', address: '14 Camden High St, London NW1 0JH, UK' },
+    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商', email: 'lucas@silvacomercio.com.br', phone: '+55 11 98765 4321', address: 'Av. Paulista 1500, São Paulo 01310-100, Brazil' },
+    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发', email: 'y.tanaka@tanaka-trading.jp', phone: '+81 3 1234 5678', address: '2-1-1 Uchisaiwaicho, Chiyoda-ku, Tokyo 100-0011, Japan' },
+    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销', email: 'o.petrova@petrova-dist.ru', phone: '+7 495 123 4567', address: 'Leninsky Prospekt 42, Moscow 119334, Russia' },
+    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口', email: 'd.okafor@okaforglobal.ng', phone: '+234 803 123 4567', address: '12 Broad St, Lagos Island, Lagos, Nigeria' },
+    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购', email: 'p.vandijk@vandijktrading.nl', phone: '+31 20 123 4567', address: 'Keizersgracht 120, 1015 CW Amsterdam, Netherlands' },
+    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商', email: 'mkim@seoulliving.kr', phone: '+82 2 1234 5678', address: '45 Teheran-ro, Gangnam-gu, Seoul 06234, Korea' },
+    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁', email: 'j.carter@carteroutdoor.com', phone: '+1 503 555 0142', address: '820 NW Marshall St, Portland, OR 97209, USA' },
+    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商', email: 's.martin@martincuisine.fr', phone: '+33 4 78 12 34 56', address: '22 Rue de la République, 69002 Lyon, France' }
   };
 
   function buildDemoRecords() {
@@ -186,6 +186,9 @@
         id: schema.uid('c_'),
         firstInquiryAt: ago(item.firstInquiryAt),
         customerName: item.customerName,
+        email: extra.email || '',
+        phone: extra.phone || '',
+        address: extra.address || '',
         product: extra.product || item.product,
         productModel: extra.productModel || item.productModel || '',
         country: item.country,

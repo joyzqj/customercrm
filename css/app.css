@@ -1454,9 +1454,9 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table th,
 .data-table td { white-space: nowrap; }
 
-/* 客户台账：固定列宽 + 不换行，横向滚动交给 .table-wrap */
+/* 客户台账（v1.2，16 列）：固定列宽 + 不换行，横向滚动交给 .table-wrap */
 .data-table--customers {
-  min-width: 1557px;
+  min-width: 1722px;
   table-layout: fixed;
   font-size: 12.5px;
 }
@@ -1468,7 +1468,7 @@ table { border-collapse: separate; border-spacing: 0; }
 }
 .data-table--customers tbody td {
   vertical-align: middle;
-  padding: 9px 8px;
+  padding: 8px;
   border-bottom: 1px solid var(--line-soft);
 }
 .data-table--customers tbody tr:last-child > td { border-bottom: 0; }
@@ -1491,23 +1491,25 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table thead th[data-col] { white-space: nowrap; }
 .data-table thead th.col-actions { text-align: right; }
 
-/* 列宽（v1.1，15 列）：全列合计 1557；<=1599 隐藏「成立时间/团队规模/年营收」后合计 1328。
-   1440 宽版首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称 / 咨询产品（含型号）/ 国家 / 公司名 /
-   主营业务 / 跟进状态 / 是否成交，「核心原因」横向滚动查看，操作列固定右侧。 */
+/* 列宽（v1.2，16 列）：全列合计 1722；<=1599 隐藏「地址/成立时间/团队规模/年营收」后合计 1313。
+   1440 宽版首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称（姓名+联系方式）/ 咨询产品（含型号）/
+   国家 / 公司名 / 主营业务 / 跟进状态 / 是否成交，「核心原因」横向滚动查看，操作列固定右侧。 */
 .data-table--customers th[data-col="firstInquiryAt"],
 .data-table--customers td[data-col="firstInquiryAt"] { width: 94px; }
 .data-table--customers th[data-col="age"],
 .data-table--customers td[data-col="age"] { width: 124px; }
 .data-table--customers th[data-col="customerName"],
-.data-table--customers td[data-col="customerName"] { width: 128px; }
+.data-table--customers td[data-col="customerName"] { width: 150px; }
 .data-table--customers th[data-col="product"],
-.data-table--customers td[data-col="product"] { width: 150px; }
+.data-table--customers td[data-col="product"] { width: 140px; }
 .data-table--customers th[data-col="country"],
-.data-table--customers td[data-col="country"] { width: 96px; }
+.data-table--customers td[data-col="country"] { width: 92px; }
 .data-table--customers th[data-col="companyName"],
 .data-table--customers td[data-col="companyName"] { width: 128px; }
 .data-table--customers th[data-col="mainBusiness"],
-.data-table--customers td[data-col="mainBusiness"] { width: 120px; }
+.data-table--customers td[data-col="mainBusiness"] { width: 112px; }
+.data-table--customers th[data-col="address"],
+.data-table--customers td[data-col="address"] { width: 180px; }
 .data-table--customers th[data-col="foundedAt"],
 .data-table--customers td[data-col="foundedAt"] { width: 61px; }
 .data-table--customers th[data-col="teamSize"],
@@ -1519,7 +1521,7 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table--customers th[data-col="dealStatus"],
 .data-table--customers td[data-col="dealStatus"] { width: 72px; }
 .data-table--customers th[data-col="coreReason"],
-.data-table--customers td[data-col="coreReason"] { width: 180px; }
+.data-table--customers td[data-col="coreReason"] { width: 165px; }
 
 .col-expand {
   width: 34px;
@@ -1628,6 +1630,17 @@ table { border-collapse: separate; border-spacing: 0; }
   color: var(--faint);
   margin-right: 6px;
 }
+/* v1.2 展开行里的邮箱 / 电话链接 */
+.contact-link {
+  color: var(--brand-700);
+  font-weight: 500;
+  text-decoration: none;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+.contact-link:hover { text-decoration: underline; }
+.contact-link:focus-visible { outline-offset: 1px; }
+.row-detail-meta .contact-link { color: var(--brand-700); }
 
 /* 展开箭头 */
 .row-toggle {
@@ -1660,6 +1673,35 @@ table { border-collapse: separate; border-spacing: 0; }
   white-space: nowrap;
 }
 .data-table--customers td.cell-strong { font-size: 13px; }
+/* v1.2 客户名称双行：姓名 + 邮箱 · 电话 */
+.cell-main {
+  display: block;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-contact {
+  display: block;
+  min-width: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* v1.2 地址列 */
+.cell-address {
+  color: var(--muted);
+  font-size: 12.5px;
+}
 .cell-muted {
   color: var(--muted);
   font-size: 12.5px;
@@ -3195,20 +3237,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
    22. 响应式
    ================================================================== */
 
-/* 22.1 <=1599：列优先级——隐藏「成立时间 / 团队规模 / 年营收」，
-   这三个字段改在行展开详情的 .row-detail-meta 中展示；
+/* 22.1 <=1599：列优先级——隐藏「地址 / 成立时间 / 团队规模 / 年营收」，
+   这四个字段改在行展开详情的 .row-detail-meta 中展示；
    1440 首屏可完整看到「跟进状态 / 是否成交」，核心原因横向滚动，操作列固定右侧。 */
 @media (max-width: 1599px) {
+  .data-table--customers th[data-col="address"],
+  .data-table--customers td[data-col="address"],
   .data-table--customers th[data-col="foundedAt"],
   .data-table--customers td[data-col="foundedAt"],
   .data-table--customers th[data-col="teamSize"],
   .data-table--customers td[data-col="teamSize"],
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: none; }
-  .data-table--customers { min-width: 1328px; }
+  .data-table--customers { min-width: 1313px; }
 }
 
-/* 超宽屏：完整 15 列，展开行无需重复 meta */
+/* 超宽屏：完整 16 列，展开行无需重复 meta */
 @media (min-width: 1600px) {
   .row-detail-meta { display: none; }
 }
@@ -3276,7 +3320,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td[data-col="coreReason"] { display: none; }
   .data-table--customers th[data-col="age"],
   .data-table--customers td[data-col="age"] { display: none; }
-  .data-table--customers { min-width: 626px; }
+  .data-table--customers { min-width: 644px; }
 
   .view { padding: 16px 16px 60px; }
   .topbar { padding: 0 16px; gap: 10px; }
@@ -3324,9 +3368,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .topbar-help { display: none; }
   .save-state { padding: 0 8px; }
 
-  .form-grid { grid-template-columns: minmax(0, 1fr); }
   .form-section-hint { margin-top: -4px; }
   .recog-item { grid-template-columns: 112px minmax(0, 1fr); }
+}
+
+/* 22.3b <720：表单单列（>=720 时邮箱 / 电话并排两列） */
+@media (max-width: 719px) {
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* 22.4 <640：统计卡一列、顶栏紧凑 */
@@ -3431,7 +3479,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   /* 极窄屏：首屏优先展示客户名称，首次询盘时间可在展开详情中查看 */
   .data-table--customers th[data-col="firstInquiryAt"],
   .data-table--customers td[data-col="firstInquiryAt"] { display: none; }
-  .data-table--customers { min-width: 532px; }
+  .data-table--customers { min-width: 550px; }
 
   .priority-item { flex-wrap: wrap; }
   .priority-main { flex: 1 1 100%; }
@@ -3579,7 +3627,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td.col-actions,
   .data-table--customers td[data-col="age"] { border-left: 0 !important; }
 
-  /* 打印时恢复 <=1599 隐藏的三列，并展示展开行的字段摘要 */
+  /* 打印时恢复 <=1599 隐藏的四列，并展示展开行的字段摘要 */
+  .data-table--customers th[data-col="address"],
+  .data-table--customers td[data-col="address"],
   .data-table--customers th[data-col="foundedAt"],
   .data-table--customers td[data-col="foundedAt"],
   .data-table--customers th[data-col="teamSize"],
@@ -3587,6 +3637,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: table-cell !important; }
   .row-detail-meta { display: flex !important; }
+  /* 打印：联系方式双行保持可读，链接去色保留下划线 */
+  .cell-main { color: #111111 !important; }
+  .cell-contact { color: #444444 !important; font-size: 10pt; white-space: normal; }
+  .cell-address { color: #444444 !important; }
+  .contact-link {
+    color: #111111 !important;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
   /* 扇形图打印：保留 SVG 与图例，去掉 hover 效果；卡内恢复普通文档流 */
   .card--pie { break-inside: avoid; }

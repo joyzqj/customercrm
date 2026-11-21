@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 客户通 CustomerCRM 单文件版 · 构建于 2026-11-22 01:13 · 内联资源 7 个：css/app.css, js/schema.js, js/core.js, js/parser.js, js/xlsx.js, js/store.js, js/app.js -->
+<!-- 客户通 CustomerCRM 单文件版 · 构建于 2026-11-22 02:57 · 内联资源 7 个：css/app.css, js/schema.js, js/core.js, js/parser.js, js/xlsx.js, js/store.js, js/app.js -->
 
 <html lang="zh-CN">
 <head>
@@ -1467,9 +1467,9 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table th,
 .data-table td { white-space: nowrap; }
 
-/* 客户台账：固定列宽 + 不换行，横向滚动交给 .table-wrap */
+/* 客户台账（v1.2，16 列）：固定列宽 + 不换行，横向滚动交给 .table-wrap */
 .data-table--customers {
-  min-width: 1557px;
+  min-width: 1722px;
   table-layout: fixed;
   font-size: 12.5px;
 }
@@ -1481,7 +1481,7 @@ table { border-collapse: separate; border-spacing: 0; }
 }
 .data-table--customers tbody td {
   vertical-align: middle;
-  padding: 9px 8px;
+  padding: 8px;
   border-bottom: 1px solid var(--line-soft);
 }
 .data-table--customers tbody tr:last-child > td { border-bottom: 0; }
@@ -1504,23 +1504,25 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table thead th[data-col] { white-space: nowrap; }
 .data-table thead th.col-actions { text-align: right; }
 
-/* 列宽（v1.1，15 列）：全列合计 1557；<=1599 隐藏「成立时间/团队规模/年营收」后合计 1328。
-   1440 宽版首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称 / 咨询产品（含型号）/ 国家 / 公司名 /
-   主营业务 / 跟进状态 / 是否成交，「核心原因」横向滚动查看，操作列固定右侧。 */
+/* 列宽（v1.2，16 列）：全列合计 1722；<=1599 隐藏「地址/成立时间/团队规模/年营收」后合计 1313。
+   1440 宽版首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称（姓名+联系方式）/ 咨询产品（含型号）/
+   国家 / 公司名 / 主营业务 / 跟进状态 / 是否成交，「核心原因」横向滚动查看，操作列固定右侧。 */
 .data-table--customers th[data-col="firstInquiryAt"],
 .data-table--customers td[data-col="firstInquiryAt"] { width: 94px; }
 .data-table--customers th[data-col="age"],
 .data-table--customers td[data-col="age"] { width: 124px; }
 .data-table--customers th[data-col="customerName"],
-.data-table--customers td[data-col="customerName"] { width: 128px; }
+.data-table--customers td[data-col="customerName"] { width: 150px; }
 .data-table--customers th[data-col="product"],
-.data-table--customers td[data-col="product"] { width: 150px; }
+.data-table--customers td[data-col="product"] { width: 140px; }
 .data-table--customers th[data-col="country"],
-.data-table--customers td[data-col="country"] { width: 96px; }
+.data-table--customers td[data-col="country"] { width: 92px; }
 .data-table--customers th[data-col="companyName"],
 .data-table--customers td[data-col="companyName"] { width: 128px; }
 .data-table--customers th[data-col="mainBusiness"],
-.data-table--customers td[data-col="mainBusiness"] { width: 120px; }
+.data-table--customers td[data-col="mainBusiness"] { width: 112px; }
+.data-table--customers th[data-col="address"],
+.data-table--customers td[data-col="address"] { width: 180px; }
 .data-table--customers th[data-col="foundedAt"],
 .data-table--customers td[data-col="foundedAt"] { width: 61px; }
 .data-table--customers th[data-col="teamSize"],
@@ -1532,7 +1534,7 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table--customers th[data-col="dealStatus"],
 .data-table--customers td[data-col="dealStatus"] { width: 72px; }
 .data-table--customers th[data-col="coreReason"],
-.data-table--customers td[data-col="coreReason"] { width: 180px; }
+.data-table--customers td[data-col="coreReason"] { width: 165px; }
 
 .col-expand {
   width: 34px;
@@ -1641,6 +1643,17 @@ table { border-collapse: separate; border-spacing: 0; }
   color: var(--faint);
   margin-right: 6px;
 }
+/* v1.2 展开行里的邮箱 / 电话链接 */
+.contact-link {
+  color: var(--brand-700);
+  font-weight: 500;
+  text-decoration: none;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+.contact-link:hover { text-decoration: underline; }
+.contact-link:focus-visible { outline-offset: 1px; }
+.row-detail-meta .contact-link { color: var(--brand-700); }
 
 /* 展开箭头 */
 .row-toggle {
@@ -1673,6 +1686,35 @@ table { border-collapse: separate; border-spacing: 0; }
   white-space: nowrap;
 }
 .data-table--customers td.cell-strong { font-size: 13px; }
+/* v1.2 客户名称双行：姓名 + 邮箱 · 电话 */
+.cell-main {
+  display: block;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-contact {
+  display: block;
+  min-width: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* v1.2 地址列 */
+.cell-address {
+  color: var(--muted);
+  font-size: 12.5px;
+}
 .cell-muted {
   color: var(--muted);
   font-size: 12.5px;
@@ -3208,20 +3250,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
    22. 响应式
    ================================================================== */
 
-/* 22.1 <=1599：列优先级——隐藏「成立时间 / 团队规模 / 年营收」，
-   这三个字段改在行展开详情的 .row-detail-meta 中展示；
+/* 22.1 <=1599：列优先级——隐藏「地址 / 成立时间 / 团队规模 / 年营收」，
+   这四个字段改在行展开详情的 .row-detail-meta 中展示；
    1440 首屏可完整看到「跟进状态 / 是否成交」，核心原因横向滚动，操作列固定右侧。 */
 @media (max-width: 1599px) {
+  .data-table--customers th[data-col="address"],
+  .data-table--customers td[data-col="address"],
   .data-table--customers th[data-col="foundedAt"],
   .data-table--customers td[data-col="foundedAt"],
   .data-table--customers th[data-col="teamSize"],
   .data-table--customers td[data-col="teamSize"],
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: none; }
-  .data-table--customers { min-width: 1328px; }
+  .data-table--customers { min-width: 1313px; }
 }
 
-/* 超宽屏：完整 15 列，展开行无需重复 meta */
+/* 超宽屏：完整 16 列，展开行无需重复 meta */
 @media (min-width: 1600px) {
   .row-detail-meta { display: none; }
 }
@@ -3289,7 +3333,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td[data-col="coreReason"] { display: none; }
   .data-table--customers th[data-col="age"],
   .data-table--customers td[data-col="age"] { display: none; }
-  .data-table--customers { min-width: 626px; }
+  .data-table--customers { min-width: 644px; }
 
   .view { padding: 16px 16px 60px; }
   .topbar { padding: 0 16px; gap: 10px; }
@@ -3337,9 +3381,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .topbar-help { display: none; }
   .save-state { padding: 0 8px; }
 
-  .form-grid { grid-template-columns: minmax(0, 1fr); }
   .form-section-hint { margin-top: -4px; }
   .recog-item { grid-template-columns: 112px minmax(0, 1fr); }
+}
+
+/* 22.3b <720：表单单列（>=720 时邮箱 / 电话并排两列） */
+@media (max-width: 719px) {
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* 22.4 <640：统计卡一列、顶栏紧凑 */
@@ -3444,7 +3492,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   /* 极窄屏：首屏优先展示客户名称，首次询盘时间可在展开详情中查看 */
   .data-table--customers th[data-col="firstInquiryAt"],
   .data-table--customers td[data-col="firstInquiryAt"] { display: none; }
-  .data-table--customers { min-width: 532px; }
+  .data-table--customers { min-width: 550px; }
 
   .priority-item { flex-wrap: wrap; }
   .priority-main { flex: 1 1 100%; }
@@ -3592,7 +3640,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td.col-actions,
   .data-table--customers td[data-col="age"] { border-left: 0 !important; }
 
-  /* 打印时恢复 <=1599 隐藏的三列，并展示展开行的字段摘要 */
+  /* 打印时恢复 <=1599 隐藏的四列，并展示展开行的字段摘要 */
+  .data-table--customers th[data-col="address"],
+  .data-table--customers td[data-col="address"],
   .data-table--customers th[data-col="foundedAt"],
   .data-table--customers td[data-col="foundedAt"],
   .data-table--customers th[data-col="teamSize"],
@@ -3600,6 +3650,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: table-cell !important; }
   .row-detail-meta { display: flex !important; }
+  /* 打印：联系方式双行保持可读，链接去色保留下划线 */
+  .cell-main { color: #111111 !important; }
+  .cell-contact { color: #444444 !important; font-size: 10pt; white-space: normal; }
+  .cell-address { color: #444444 !important; }
+  .contact-link {
+    color: #111111 !important;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
   /* 扇形图打印：保留 SVG 与图例，去掉 hover 效果；卡内恢复普通文档流 */
   .card--pie { break-inside: avoid; }
@@ -3693,7 +3752,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
           <span>本地优先 · 数据不出电脑</span>
         </div>
-        <div class="sidebar-version">v1.1.0 · localStorage</div>
+        <div class="sidebar-version">v1.2.0 · localStorage</div>
       </div>
     </aside>
 
@@ -3756,7 +3815,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var STORAGE_KEY = 'customer-crm.v1';
 
   /* ------------------------------------------------------------------ */
@@ -3942,6 +4001,21 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       placeholder: 'Michael Braun'
     },
     {
+      key: 'email', label: '邮箱', type: 'email', required: false,
+      table: true, excel: '邮箱', width: 26, hint: '客户联系邮箱，用于发送报价 / 跟进邮件',
+      placeholder: 'michael.braun@braun-trading.de'
+    },
+    {
+      key: 'phone', label: '电话', type: 'tel', required: false,
+      table: true, excel: '电话', width: 20, hint: '客户电话 / 手机 / WhatsApp，建议带国际区号',
+      placeholder: '+49 171 1234567'
+    },
+    {
+      key: 'address', label: '地址', type: 'text', required: false, full: true,
+      table: true, excel: '地址', width: 34, hint: '客户公司地址 / 收货地址（中英文均可）',
+      placeholder: 'Industriestr. 12, 70565 Stuttgart, Germany'
+    },
+    {
       key: 'product', label: '咨询产品', type: 'text', required: false,
       table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品名称，可从「产品库」下拉选择',
       placeholder: '不锈钢保温杯'
@@ -4000,7 +4074,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     {
       title: '客户与公司信息',
       hint: '询盘来源与客户背景，用于判断客户质量与采购能力',
-      keys: ['firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
+      keys: ['firstInquiryAt', 'customerName', 'email', 'phone', 'address', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
     },
     {
       title: '跟进与成交',
@@ -4255,6 +4329,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     id: '',
     firstInquiryAt: '',
     customerName: '',
+    email: '',
+    phone: '',
+    address: '',
     product: '',
     productModel: '',
     country: '',
@@ -4417,6 +4494,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       id: rec.id,
       firstInquiryAt: rec.firstInquiryAt,
       customerName: rec.customerName || '',
+      email: rec.email || '',
+      phone: rec.phone || '',
+      address: rec.address || '',
       product: rec.product || '',
       productModel: rec.productModel || '',
       country: rec.country || '',
@@ -4470,6 +4550,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     return f ? f.label : key;
   }
 
+  /** 邮箱格式校验（宽松：xx@yy.zz 即可，允许空值） */
+  function isValidEmail(value) {
+    var text = plainText(value);
+    if (!text) return true;
+    return /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(text);
+  }
+
   /** 表单校验：返回 { ok, errors: { key: message } } */
   function validate(record) {
     var errors = {};
@@ -4477,6 +4564,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     if (!isValidISO(rec.firstInquiryAt)) errors.firstInquiryAt = '请选择首次询盘日期';
     if (!plainText(rec.customerName)) errors.customerName = '请填写客户名称';
     if (plainText(rec.customerName).length > 120) errors.customerName = '客户名称过长';
+    if (!isValidEmail(rec.email)) errors.email = '邮箱格式不正确，例如 name@example.com';
+    if (plainText(rec.phone).length > 60) errors.phone = '电话过长';
+    if (plainText(rec.address).length > 500) errors.address = '地址过长';
     if (rec.followupStatus && FOLLOWUP_STATUS.indexOf(rec.followupStatus) === -1) errors.followupStatus = '跟进状态不合法';
     if (rec.dealStatus && DEAL_STATUS.indexOf(rec.dealStatus) === -1) errors.dealStatus = '成交状态不合法';
     return { ok: Object.keys(errors).length === 0, errors: errors };
@@ -4504,6 +4594,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     normalize: normalize,
     derive: derive,
     validate: validate,
+    isValidEmail: isValidEmail,
     fieldByKey: fieldByKey,
     fieldLabel: fieldLabel,
 
@@ -5037,12 +5128,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   if (!schema && typeof globalThis !== 'undefined' && globalThis.CRM_SCHEMA) { schema = globalThis.CRM_SCHEMA; }
   if (!schema && typeof window !== 'undefined' && window.CRM_SCHEMA) { schema = window.CRM_SCHEMA; }
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
 
-  /* 13 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
+  /* 16 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
   var FALLBACK_FIELD_KEYS = [
-    'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
-    'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+    'firstInquiryAt', 'customerName', 'email', 'phone', 'address',
+    'product', 'productModel', 'country', 'companyName', 'mainBusiness',
+    'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
   ];
   var FIELD_KEYS = FALLBACK_FIELD_KEYS.slice();
   if (schema && Array.isArray(schema.FIELDS) && schema.FIELDS.length) {
@@ -5053,19 +5145,19 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   /* 单次识别允许处理的最大字符数（超长文本截断，保证性能与稳定性） */
   var MAX_TEXT_LENGTH = 200000;
 
-  /* 供界面「示例」按钮使用：三段原文直接取契约 §5.3 */
+  /* 供界面「示例」按钮使用：三段原文在契约 §5.3 基础上补充联系方式（v1.2） */
   var SAMPLE_TEXTS = [
     {
       label: '中文询盘',
-      text: '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。'
+      text: '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, 70565 Stuttgart, Germany。'
     },
     {
       label: '英文询盘',
-      text: 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20.'
+      text: 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20. Email: michael.braun@braun-trading.de, Tel: +49 711 4567 890, Address: Industriestr. 12, 70565 Stuttgart, Germany.'
     },
     {
       label: '展会名片速记',
-      text: '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。'
+      text: '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。邮箱 a.hassan@elnile-import.com，电话 +20 100 234 5678，地址 25 Nile Corniche, Cairo 11511, Egypt。'
     }
   ];
 
@@ -6049,6 +6141,166 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   }
 
   /* ================================================================== */
+  /* 7c. 联系方式：邮箱 / 电话 / 地址（v1.2 新增字段）                     */
+  /* ================================================================== */
+
+  /* ---------- 7c.1 邮箱 email ---------- */
+
+  var EMAIL_RE = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)+/g;
+
+  /** 邮箱：取文中第一个合法邮箱（标签/裸邮箱都行），≤120 字 */
+  function extractEmail(norm) {
+    EMAIL_RE.lastIndex = 0;
+    var m = EMAIL_RE.exec(norm);
+    while (m !== null) {
+      if (m[0].length === 0) { EMAIL_RE.lastIndex += 1; m = EMAIL_RE.exec(norm); continue; }
+      var value = m[0].replace(/[.,;:]+$/, '');
+      if (value.length >= 5 && value.length <= 120 && value.indexOf('@') > 0) {
+        return { value: value, index: m.index, len: value.length, rule: 'email.email' };
+      }
+      m = EMAIL_RE.exec(norm);
+    }
+    return null;
+  }
+
+  /* ---------- 7c.2 电话 phone ---------- */
+
+  var PHONE_RULES = [
+    {
+      /* 中文/英文标签之后的号码（Tel/Phone/Mobile/WhatsApp/传真/手机…） */
+      id: 'phone.labeled',
+      re: /(?:联系电话|联系方式|电话|手机号码|手机号|手机|座机|固话|传真|WhatsApp|Telegram|WeChat|微信|Tel|Phone|Mobile|Cell|Fax)\s*[：:.]?\s*(\+?(?:\(\s*\d{1,4}\s*\)\s*)?\d[\d\s\-().]{5,22}\d)/gi
+    },
+    { id: 'phone.intl', re: /(?:^|[^\d+])(\+\d[\d\s\-().]{5,22}\d)/g },
+    { id: 'phone.intl00', re: /(?:^|[^\d])(00\d[\d\s\-().]{5,22}\d)/g },
+    { id: 'phone.cn-mobile', re: /(?:^|[^\d])(1[3-9]\d{9})(?!\d)/g },
+    { id: 'phone.grouped', re: /(?:^|[^\d])((?:\(\d{2,4}\)\s*)?\d{3,4}[\s\-]\d{3,4}(?:[\s\-]\d{2,4})?)(?!\d)/g }
+  ];
+
+  /** 明显的非电话语境：日期 / 金额 / 订单号 / 发票号 */
+  function phoneContextRejected(norm, index, len) {
+    var before = norm.slice(Math.max(0, index - 14), index);
+    var after = norm.slice(index + len, Math.min(norm.length, index + len + 14));
+    var around = (before + ' ' + after).toLowerCase();
+    if (/(?:\bpo\b|订单|单号|合同号|发票|invoice|order\s*(?:no|#)|sku|编号|货号)/i.test(around)) { return true; }
+    if (/(?:年|月|日|元|万|亿|美元|欧元|英镑|人民币|usd|eur|gbp|rmb|%|pcs|件套)/i.test(before.slice(-6) + ' ' + after.slice(0, 8))) { return true; }
+    return false;
+  }
+
+  /** 校验并清洗电话候选：7-20 位数字，排除纯日期/金额/单号/邮箱内数字 */
+  function phoneValueOf(candidate, norm, index, len, ruleId) {
+    var raw = collapseSpace(candidate).replace(/^[\s\-]+/, '').replace(/[\s\-]+$/, '');
+    raw = raw.replace(/[.,;:，。；：、]+$/, '');
+    var digits = raw.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 20) { return null; }
+    if (raw.length > 40) { return null; }
+    /* 纯日期形态（2026-09-12）绝不当电话 */
+    if (/^\d{4}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{1,2}$/.test(raw)) { return null; }
+    /* 与邮箱/单词粘连的数字（如 13800138000@qq.com）不是电话 */
+    var prev = index > 0 ? norm.charAt(index - 1) : '';
+    var next = norm.charAt(index + len);
+    if (/[A-Za-z0-9@._%+\-]/.test(prev) || /[A-Za-z0-9@]/.test(next)) { return null; }
+    if (phoneContextRejected(norm, index, len)) { return null; }
+    return { value: raw, index: index, len: len, rule: ruleId };
+  }
+
+  /** 电话：标签 > 国际区号 > 00 国际 > 中国手机 > 分组号码，保留原始格式（空白归一） */
+  function extractPhone(norm) {
+    for (var r = 0; r < PHONE_RULES.length; r += 1) {
+      var rule = PHONE_RULES[r];
+      var re = rule.re;
+      re.lastIndex = 0;
+      var m = re.exec(norm);
+      while (m !== null) {
+        if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(norm); continue; }
+        var candidate = m[1] || m[0];
+        var index = m.index + m[0].indexOf(candidate);
+        var hit = phoneValueOf(candidate, norm, index, candidate.length, rule.id);
+        if (hit) { return hit; }
+        m = re.exec(norm);
+      }
+    }
+    return null;
+  }
+
+  /* ---------- 7c.3 地址 address ---------- */
+
+  var ADDRESS_RULES = [
+    {
+      /* 公司/联系地址标签优先（允许英文地址里的逗号） */
+      id: 'address.cn-strong',
+      re: /(?:公司地址|办公地址|联系地址|通讯地址|注册地址|总部地址)\s*[：:]?\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 英文 Address / Add / Office / Headquarters 后的地址 */
+      id: 'address.en',
+      re: /(?:Address|Add\.?|Office|Headquarters|HQ)\s*(?:[:：]\s*|\n\s*)([^\n]{3,200})/gi
+    },
+    {
+      /* 泛化中文地址标签（收货地址、地址等） */
+      id: 'address.cn-label',
+      re: /(?:收货地址|地址|住址|所在地)\s*[：:]?\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 公司位于 XXX */
+      id: 'address.cn-located',
+      re: /(?:公司|客户|他们|其|总部)?\s*(?:位于|坐落于|地处)\s*([^\n。；;]{2,200})/g
+    },
+    {
+      /* 无标签的省市路号地址（如 浙江省宁波市鄞州区天童南路88号） */
+      id: 'address.cn-standalone',
+      re: /((?:[\u4e00-\u9fa5]{2,10}(?:省|自治区|特别行政区))?[\u4e00-\u9fa5]{2,10}市[\u4e00-\u9fa5]{2,12}(?:区|县)[\u4e00-\u9fa5A-Za-z0-9\s\-]{2,30}(?:路|街|大道|巷)[\u4e00-\u9fa5A-Za-z0-9\s\-]{1,20}(?:号|弄|栋|楼|室)?)/g
+    }
+  ];
+
+  /* 「邮箱地址」「IP 地址」「网址」里的「地址」不是通讯地址 */
+  var ADDRESS_NOISE_RE = /(?:邮箱|email|e-mail|ip|网址|网站|网页|链接|服务器|二维码)/i;
+
+  function addressNoise(norm, index) {
+    var before = norm.slice(Math.max(0, index - 10), index);
+    return ADDRESS_NOISE_RE.test(before);
+  }
+
+  /** 清洗地址：去标签残留、去后面混入的说明句、≤200 字 */
+  function cleanAddress(value) {
+    var t = collapseSpace(value);
+    t = t.replace(/^[\s:：,，;；\-–—]+/, '');
+    /* 中文地址后常跟「，请…/，电话…」等说明，从这些词处截断 */
+    t = t.split(/[，,]\s*(?=(?:请|谢谢|感谢|联系|电话|手机|邮箱|email|e-mail|传真|邮编|我们|本公司|欢迎|期待|如有|需要|发货|收货|成立于|成立|主营|规模|员工|团队|年营|主要))/i)[0];
+    /* 英文地址可能把后面的客套话一起吞进来，按常见句首截断 */
+    t = t.split(/\s+(?:Please|Kindly|Best\s+regards|Thanks|Thank\s+you|Regards|Sincerely|We\s+look|Looking\s+forward|Our\s+company)\b/i)[0];
+    t = t.replace(/[\s,，;；。.]+$/, '');
+    if (!t || t.length < 4) { return ''; }
+    if (t.length > 200) { t = t.slice(0, 200); }
+    return t;
+  }
+
+  /** 地址：公司/联系地址优先，其次其他标签，最后「位于」与无标签省市路号 */
+  function extractAddress(norm) {
+    for (var r = 0; r < ADDRESS_RULES.length; r += 1) {
+      var rule = ADDRESS_RULES[r];
+      var re = rule.re;
+      re.lastIndex = 0;
+      var m = re.exec(norm);
+      while (m !== null) {
+        if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(norm); continue; }
+        if (addressNoise(norm, m.index)) {
+          m = re.exec(norm);
+          continue;
+        }
+        var raw = m[1] || m[0];
+        var value = cleanAddress(raw);
+        if (value) {
+          var index = m.index + m[0].indexOf(raw);
+          return { value: value, index: index, len: raw.length, rule: rule.id };
+        }
+        m = re.exec(norm);
+      }
+    }
+    return null;
+  }
+
+  /* ================================================================== */
   /* 8. 跟进状态 / 成交状态                                               */
   /* ================================================================== */
 
@@ -6341,6 +6593,14 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       if (business) {
         setField(ctx, 'mainBusiness', business.value, business.index, business.len, business.rule);
       }
+
+      /* 8d) 联系方式（v1.2：邮箱 / 电话 / 地址） */
+      var email = extractEmail(norm);
+      if (email) { setField(ctx, 'email', email.value, email.index, email.len, email.rule); }
+      var phone = extractPhone(norm);
+      if (phone) { setField(ctx, 'phone', phone.value, phone.index, phone.len, phone.rule); }
+      var address = extractAddress(norm);
+      if (address) { setField(ctx, 'address', address.value, address.index, address.len, address.rule); }
 
       /* 9) 跟进状态：识别不到则按契约给默认「新询盘」 */
       var status = pickFirstRule(STATUS_RULES, norm);
@@ -7114,14 +7374,17 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   }
 
   /* ================================================================== */
-  /* 6. 客户台账导出：两个工作表、21 + 11 列（v1.1）                       */
+  /* 6. 客户台账导出：两个工作表、24 + 13 列（v1.2）                       */
   /* ================================================================== */
 
-  /* v1.1：客户总表 21 列（新增「产品型号」「主营业务」） */
+  /* v1.2：客户总表 24 列（客户名称后新增「邮箱」「电话」「地址」） */
   var TOTAL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
+    { header: '邮箱', width: 26 },
+    { header: '电话', width: 20 },
+    { header: '地址', width: 34 },
     { header: '咨询产品', width: 26 },
     { header: '产品型号', width: 16 },
     { header: '国家', width: 14, align: 'center' },
@@ -7142,11 +7405,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     { header: '最近跟进③内容', width: 46, wrap: true }
   ];
 
-  /* v1.1：跟进明细 11 列（新增「主营业务」） */
+  /* v1.2：跟进明细 13 列（客户名称后新增「邮箱」「电话」） */
   var DETAIL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
+    { header: '邮箱', width: 26 },
+    { header: '电话', width: 20 },
     { header: '公司名', width: 30 },
     { header: '主营业务', width: 22 },
     { header: '国家', width: 14, align: 'center' },
@@ -7232,6 +7497,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     return {
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
+      email: asText(rec.email),
+      phone: asText(rec.phone),
+      address: asText(rec.address),
       product: asText(rec.product),
       productModel: asText(rec.productModel),
       country: asText(rec.country),
@@ -7271,6 +7539,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     return {
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
+      email: asText(rec.email),
+      phone: asText(rec.phone),
+      address: asText(rec.address),
       product: asText(rec.product),
       productModel: asText(rec.productModel),
       country: asText(rec.country),
@@ -7371,6 +7642,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         index + 1,
         asText(item.firstInquiryAt),
         asText(item.customerName),
+        asText(item.email),
+        asText(item.phone),
+        asText(item.address),
         asText(item.product),
         asText(item.productModel),
         asText(item.country),
@@ -7396,6 +7670,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           seq,
           asText(item.firstInquiryAt),
           asText(item.customerName),
+          asText(item.email),
+          asText(item.phone),
           asText(item.companyName),
           asText(item.mainBusiness),
           asText(item.country),
@@ -7651,20 +7927,20 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     }
   ];
 
-  /* 示例客户的「产品名称 / 型号 / 主营业务」（与产品库预置数据对应） */
+  /* 示例客户的「产品名称 / 型号 / 主营业务 / 联系方式」（与产品库预置数据对应） */
   var DEMO_EXTRA = {
-    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销' },
-    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销' },
-    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售' },
-    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售' },
-    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商' },
-    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发' },
-    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销' },
-    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口' },
-    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购' },
-    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商' },
-    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁' },
-    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商' }
+    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销', email: 'm.braun@braun-trading.de', phone: '+49 711 4567 890', address: 'Industriestr. 12, 70565 Stuttgart, Germany' },
+    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销', email: 'e.rossi@rossiimport.it', phone: '+39 02 8765 4321', address: 'Via Brera 18, 20121 Milano, Italy' },
+    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售', email: 'a.hassan@elnile-import.com', phone: '+20 100 234 5678', address: '25 Nile Corniche, Cairo 11511, Egypt' },
+    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售', email: 's.thompson@thompsonhomewares.co.uk', phone: '+44 20 7946 0123', address: '14 Camden High St, London NW1 0JH, UK' },
+    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商', email: 'lucas@silvacomercio.com.br', phone: '+55 11 98765 4321', address: 'Av. Paulista 1500, São Paulo 01310-100, Brazil' },
+    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发', email: 'y.tanaka@tanaka-trading.jp', phone: '+81 3 1234 5678', address: '2-1-1 Uchisaiwaicho, Chiyoda-ku, Tokyo 100-0011, Japan' },
+    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销', email: 'o.petrova@petrova-dist.ru', phone: '+7 495 123 4567', address: 'Leninsky Prospekt 42, Moscow 119334, Russia' },
+    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口', email: 'd.okafor@okaforglobal.ng', phone: '+234 803 123 4567', address: '12 Broad St, Lagos Island, Lagos, Nigeria' },
+    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购', email: 'p.vandijk@vandijktrading.nl', phone: '+31 20 123 4567', address: 'Keizersgracht 120, 1015 CW Amsterdam, Netherlands' },
+    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商', email: 'mkim@seoulliving.kr', phone: '+82 2 1234 5678', address: '45 Teheran-ro, Gangnam-gu, Seoul 06234, Korea' },
+    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁', email: 'j.carter@carteroutdoor.com', phone: '+1 503 555 0142', address: '820 NW Marshall St, Portland, OR 97209, USA' },
+    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商', email: 's.martin@martincuisine.fr', phone: '+33 4 78 12 34 56', address: '22 Rue de la République, 69002 Lyon, France' }
   };
 
   function buildDemoRecords() {
@@ -7674,6 +7950,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         id: schema.uid('c_'),
         firstInquiryAt: ago(item.firstInquiryAt),
         customerName: item.customerName,
+        email: extra.email || '',
+        phone: extra.phone || '',
+        address: extra.address || '',
         product: extra.product || item.product,
         productModel: extra.productModel || item.productModel || '',
         country: item.country,
@@ -8316,6 +8595,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     if (field.type === 'date') {
       return '<input type="date" ' + common + ' value="' + esc(value || '') + '" required>';
     }
+    if (field.type === 'email') {
+      return '<input type="email" ' + common + ' value="' + esc(value || '') + '" placeholder="' + esc(field.placeholder || '') + '" autocomplete="off" spellcheck="false">';
+    }
+    if (field.type === 'tel') {
+      return '<input type="tel" ' + common + ' value="' + esc(value || '') + '" placeholder="' + esc(field.placeholder || '') + '" autocomplete="off">';
+    }
     if (field.type === 'select' && field.options === 'status') {
       return '<select ' + common + '>' + schema.FOLLOWUP_STATUS.map(function (status) {
         return '<option value="' + esc(status) + '"' + (status === (value || '新询盘') ? ' selected' : '') + '>' + esc(status) + '</option>';
@@ -8337,7 +8622,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 
   function fieldHtml(field, value, full) {
     var label = esc(field.label);
-    return '<div class="field' + (full || field.type === 'textarea' ? ' field--full' : '') + '" data-field="' + field.key + '">' +
+    var isFull = !!(full || field.full || field.type === 'textarea');
+    return '<div class="field' + (isFull ? ' field--full' : '') + '" data-field="' + field.key + '">' +
       '<label class="field-label" for="f-' + field.key + '">' + label +
       (field.required ? '<span class="req" aria-hidden="true">*</span>' : '') +
       '</label>' +
@@ -8623,7 +8909,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     if (!raw.customerName) errors.customerName = '请填写客户名称';
     else if (raw.customerName.length > 120) errors.customerName = '客户名称请不要超过 120 字';
 
-    var partial = { firstInquiryAt: raw.firstInquiryAt, customerName: raw.customerName, followupStatus: raw.followupStatus, dealStatus: raw.dealStatus };
+    var partial = {
+      firstInquiryAt: raw.firstInquiryAt,
+      customerName: raw.customerName,
+      email: raw.email,
+      phone: raw.phone,
+      address: raw.address,
+      followupStatus: raw.followupStatus,
+      dealStatus: raw.dealStatus
+    };
     var statusCheck = schema.validate(partial);
     Object.keys(statusCheck.errors).forEach(function (key) { if (!errors[key]) errors[key] = statusCheck.errors[key]; });
 
@@ -8762,7 +9056,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     var q = filter.q.trim().toLowerCase();
     if (!q) return true;
     var haystack = [
-      rec.customerName, rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
+      rec.customerName, rec.email, rec.phone, rec.address,
+      rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
       rec.country, rec.coreReason, rec.followupStatus, rec.dealStatus, rec.firstInquiryAt,
       rec.foundedAt, rec.teamSize, rec.annualRevenue
     ].concat((rec.followups || []).map(function (item) { return item.note; })).join(' ').toLowerCase();
@@ -9025,6 +9320,17 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       ' <span class="sort-arrow" aria-hidden="true">' + arrow + '</span></button>';
   }
 
+  /** 客户名称单元格：姓名 + 邮箱/电话副行（v1.2） */
+  function customerNameCell(rec) {
+    var contact = [];
+    if (rec.email) contact.push(rec.email);
+    if (rec.phone) contact.push(rec.phone);
+    return '<span class="cell-main">' + esc(rec.customerName || '未命名') + '</span>' +
+      (contact.length
+        ? '<span class="cell-contact" title="' + esc(contact.join(' · ')) + '">' + esc(contact.join(' · ')) + '</span>'
+        : '');
+  }
+
   function customerRowHtml(rec) {
     var detailId = 'detail-' + rec.id;
     var reason = rec.coreReason || '';
@@ -9032,7 +9338,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '<td class="col-expand"><button type="button" class="row-toggle icon-btn icon-btn--sm" data-action="toggle-row" data-id="' + esc(rec.id) + '" data-testid="row-toggle" aria-expanded="' + (state.expanded[rec.id] ? 'true' : 'false') + '" aria-controls="' + detailId + '" aria-label="展开最近三次跟进">' + icon('chevronRight', 14) + '</button></td>' +
         '<td data-col="firstInquiryAt" class="cell-num">' + esc(rec.firstInquiryAt) + '</td>' +
         '<td data-col="age">' + ageCell(rec) + '</td>' +
-        '<td data-col="customerName" class="cell-strong">' + esc(rec.customerName || '未命名') + '</td>' +
+        '<td data-col="customerName" class="cell-strong">' + customerNameCell(rec) + '</td>' +
         '<td data-col="product" class="cell-product" title="' + esc(rec.product) + (rec.productModel ? ' · ' + esc(rec.productModel) : '') + '">' +
           '<span class="cell-strong-inline">' + esc(rec.product || '—') + '</span>' +
           (rec.productModel ? '<span class="cell-sub">' + esc(rec.productModel) + '</span>' : '') +
@@ -9040,6 +9346,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '<td data-col="country" class="cell-country">' + flagText(rec.country) + esc(rec.country || '—') + '</td>' +
         '<td data-col="companyName" title="' + esc(rec.companyName) + '">' + esc(rec.companyName || '—') + '</td>' +
         '<td data-col="mainBusiness" class="cell-muted" title="' + esc(rec.mainBusiness) + '">' + esc(rec.mainBusiness || '—') + '</td>' +
+        '<td data-col="address" class="cell-address" title="' + esc(rec.address) + '">' + esc(rec.address || '—') + '</td>' +
         '<td data-col="foundedAt" class="cell-num">' + esc(rec.foundedAt || '—') + '</td>' +
         '<td data-col="teamSize">' + esc(rec.teamSize || '—') + '</td>' +
         '<td data-col="annualRevenue">' + esc(rec.annualRevenue || '—') + '</td>' +
@@ -9053,9 +9360,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '</div></td>' +
       '</tr>' +
       '<tr class="row-detail" id="' + detailId + '" data-detail="' + esc(rec.id) + '"' + (state.expanded[rec.id] ? '' : ' hidden') + '>' +
-        '<td colspan="15">' +
+        '<td colspan="16">' +
           '<div class="row-detail-inner">' +
             '<div class="row-detail-meta">' +
+              '<span><i>邮箱</i><a class="contact-link" href="mailto:' + esc(rec.email) + '">' + esc(rec.email || '—') + '</a></span>' +
+              '<span><i>电话</i><a class="contact-link" href="tel:' + esc(String(rec.phone || '').replace(/[^\d+]/g, '')) + '">' + esc(rec.phone || '—') + '</a></span>' +
+              '<span><i>地址</i>' + esc(rec.address || '—') + '</span>' +
               '<span><i>产品型号</i>' + esc(rec.productModel || '—') + '</span>' +
               '<span><i>主营业务</i>' + esc(rec.mainBusiness || '—') + '</span>' +
               '<span><i>成立时间</i>' + esc(rec.foundedAt || '—') + '</span>' +
@@ -9128,6 +9438,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           '<th data-col="country" scope="col">国家</th>' +
           '<th data-col="companyName" scope="col">公司名</th>' +
           '<th data-col="mainBusiness" scope="col">主营业务</th>' +
+          '<th data-col="address" scope="col">地址</th>' +
           '<th data-col="foundedAt" scope="col">成立时间</th>' +
           '<th data-col="teamSize" scope="col">团队规模</th>' +
           '<th data-col="annualRevenue" scope="col">年营收</th>' +
@@ -9156,7 +9467,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">客户台账</h2>' +
-          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 13 个核心字段 + 最近三次跟进</p>' +
+          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 16 个核心字段 + 最近三次跟进</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-recognize" data-testid="btn-recognize">' + icon('sparkles', 16) + ' 智能识别</button>' +
@@ -9294,7 +9605,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">智能识别 · 一段话自动填表</h2>' +
-          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出产品名称/型号、主营业务等 13 个字段和最近三次跟进。</p>' +
+          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出邮箱/电话/地址、产品名称/型号、主营业务等 16 个字段和最近三次跟进。</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-customers">' + icon('users', 16) + ' 返回客户台账</button>' +
@@ -9530,8 +9841,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           '</ol>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>② 产品库与咨询产品</h3>' +
+          '<h3>② 联系方式与产品库</h3>' +
           '<ul class="help-list">' +
+            '<li>每位客户可记录<b>邮箱、电话、地址</b>：台账里邮箱/电话显示在客户名称下方，地址在 1600 以上屏幕单独成列，展开行可看完整联系方式（邮箱可点、电话可拨）。</li>' +
             '<li>设置页「产品库」可<b>预录入产品名称 + 型号</b>（默认已带 12 条），支持新增/删除/恢复预置。</li>' +
             '<li>新建客户时「咨询产品」是<b>名称 + 型号联动下拉</b>，选完自动填两个字段，表格里型号以小字显示在产品名下方。</li>' +
             '<li>没有的产品可直接手动输入，点「加入产品库」下次就能下拉选择。</li>' +
@@ -9544,14 +9856,14 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
             '<li>每位客户最多记录 <b>最近三次</b>跟进，最新一条排最前。</li>' +
             '<li>「距上次跟进」= 今天 − 最近一条跟进日期；没有跟进记录时显示「尚未跟进」。</li>' +
             '<li>颜色：<span class="badge badge--ok">7 天内</span> <span class="badge badge--warn">7-13 天</span> <span class="badge badge--danger">≥14 天</span>，阈值可在设置页调整。</li>' +
-            '<li>表格行首箭头展开，可看到三条跟进记录与产品型号/主营业务/公司规模，并可直接补记。</li>' +
+            '<li>表格行首箭头展开，可看到三条跟进记录与邮箱/电话/地址、产品型号、主营业务、公司规模，并可直接补记。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
           '<h3>④ 一键导出 Excel</h3>' +
           '<ul class="help-list">' +
             '<li>客户台账页「一键导出 Excel」：有筛选时导出<b>当前筛选结果</b>，否则导出全部。</li>' +
-            '<li>文件含两个工作表：<b>客户总表</b>（21 列，含产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
+            '<li>文件含两个工作表：<b>客户总表</b>（24 列，含邮箱/电话/地址、产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
             '<li>表头冻结、自动筛选、列宽与换行都已设置，可直接打印或发给同事。</li>' +
           '</ul>' +
         '</section>' +
@@ -9574,7 +9886,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '<div class="card-head"><div><h3 class="card-title">智能识别怎么写更容易识别</h3><p class="card-sub">规则引擎：标签越清晰、日期越规范，命中率越高</p></div></div>' +
         '<div class="card-body">' +
           '<ul class="help-list help-list--wide">' +
-            '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。</li>' +
+            '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。留上邮箱、电话、地址（如「邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, Stuttgart」）会自动填入联系方式。</li>' +
             '<li>用「成立于」「团队」「年营收」这类标签词描述公司背景，识别成立时间 / 团队规模 / 年营收最稳。</li>' +
             '<li>写清「主营/从事/进口/分销」与产品规格（如「500ml」「16 件套」），主营业务与产品型号也会自动识别。</li>' +
             '<li>跟进记录写成「日期 + 做了什么」，例如「11月18日邮件确认样品尺寸」，会被归入最近三次跟进。</li>' +

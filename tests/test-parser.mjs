@@ -15,14 +15,15 @@ const schema = require('../js/schema.js');
 const TODAY = '2026-11-21';
 const OPTS = { today: TODAY };
 const FIELD_KEYS = [
-  'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
-  'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+  'firstInquiryAt', 'customerName', 'email', 'phone', 'address',
+  'product', 'productModel', 'country', 'companyName', 'mainBusiness',
+  'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
 ];
 
-/* 契约 §5.3 的三段原文（与 SAMPLE_TEXTS 必须完全一致） */
-const TEXT_A = '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。';
-const TEXT_B = 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20.';
-const TEXT_C = '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。';
+/* 三段示例原文（与 parser.SAMPLE_TEXTS 必须完全一致；v1.2 追加联系方式） */
+const TEXT_A = '2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, 70565 Stuttgart, Germany。';
+const TEXT_B = 'Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 regarding our 500ml stainless steel vacuum flask with custom logo printing. The company was founded in 1998, with a team of 50-100 employees and annual revenue around EUR 12 million. We sent our quotation on Nov 10; the client said our price is about 8% above their target. The deal was closed on Nov 20. Email: michael.braun@braun-trading.de, Tel: +49 711 4567 890, Address: Industriestr. 12, 70565 Stuttgart, Germany.';
+const TEXT_C = '广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。邮箱 a.hassan@elnile-import.com，电话 +20 100 234 5678，地址 25 Nile Corniche, Cairo 11511, Egypt。';
 
 /* ------------------------------ 迷你测试框架 ------------------------------ */
 
@@ -57,7 +58,7 @@ const resultC = parser.recognize(parser.SAMPLE_TEXTS[2].text, OPTS);
 /* ==================================================================== */
 
 test('接口：VERSION / recognize / parseDate / SAMPLE_TEXTS 齐备', () => {
-  assert.equal(parser.VERSION, '1.1.0');
+  assert.equal(parser.VERSION, '1.2.0');
   assert.equal(typeof parser.recognize, 'function');
   assert.equal(typeof parser.parseDate, 'function');
   assert.ok(Array.isArray(parser.SAMPLE_TEXTS));
@@ -71,9 +72,9 @@ test('样例：标签依次为 中文询盘 / 英文询盘 / 展会名片速记�
   assert.equal(parser.SAMPLE_TEXTS[2].text, TEXT_C);
 });
 
-test('结果结构：13 个字段 key 与 CRM_SCHEMA.FIELD_KEYS 完全一致', () => {
+test('结果结构：16 个字段 key 与 CRM_SCHEMA.FIELD_KEYS 完全一致', () => {
   deepEqual(FIELD_KEYS, schema.FIELD_KEYS);
-  assert.equal(schema.FIELD_KEYS.length, 13);
+  assert.equal(schema.FIELD_KEYS.length, 16);
   [resultA, resultB, resultC].forEach((r) => {
     Object.keys(r.fields).forEach((key) => {
       assert.ok(schema.FIELD_KEYS.indexOf(key) !== -1, '未知字段 key: ' + key);
@@ -145,9 +146,12 @@ test('A：跟进记录首条 2026-11-18，至少 2 条', () => {
   assert.equal(resultA.followups[0].date, '2026-11-18');
 });
 
-test('A：13 个字段全部命中，missing 为空，ok=true', () => {
+test('A：联系方式全命中（email / phone / address），filled=16/16', () => {
   assert.equal(resultA.ok, true);
-  assert.equal(resultA.filled, 13);
+  assert.equal(resultA.fields.email, 'm.braun@braun-trading.de');
+  assert.ok(/\+49/.test(resultA.fields.phone || ''), 'phone=' + resultA.fields.phone);
+  assert.ok((resultA.fields.address || '').indexOf('Stuttgart') !== -1, 'address=' + resultA.fields.address);
+  assert.equal(resultA.filled, 16);
   deepEqual(resultA.missing, []);
 });
 
@@ -188,6 +192,14 @@ test('B：产品型号含 500ml；文本无主营描述时不输出 mainBusiness
   assert.ok(resultB.missing.indexOf('mainBusiness') !== -1);
 });
 
+test('B：联系方式全命中（Email / Tel / Address），filled=15/16', () => {
+  assert.equal(resultB.fields.email, 'michael.braun@braun-trading.de');
+  assert.ok(/\+49/.test(resultB.fields.phone || ''), 'phone=' + resultB.fields.phone);
+  assert.ok((resultB.fields.address || '').indexOf('Stuttgart') !== -1, 'address=' + resultB.fields.address);
+  assert.equal(resultB.filled, 15);
+  deepEqual(resultB.missing, ['mainBusiness']);
+});
+
 /* ==================================================================== */
 /* 4. 契约样例 C（展会名片速记）                                         */
 /* ==================================================================== */
@@ -222,6 +234,14 @@ test('C：主营业务含「家居用品」；产品无规格时不输出 produc
   assert.ok(resultC.missing.indexOf('productModel') !== -1);
 });
 
+test('C：联系方式全命中（邮箱/电话/地址），filled=12/16', () => {
+  assert.equal(resultC.fields.email, 'a.hassan@elnile-import.com');
+  assert.equal(resultC.fields.phone, '+20 100 234 5678');
+  assert.ok((resultC.fields.address || '').indexOf('Nile Corniche') !== -1, 'address=' + resultC.fields.address);
+  assert.equal(resultC.filled, 12);
+  deepEqual(resultC.missing, ['firstInquiryAt', 'productModel', 'dealStatus', 'coreReason']);
+});
+
 test('C：没有明确成交线索时不输出 dealStatus', () => {
   assert.equal(resultC.fields.dealStatus, undefined);
 });
@@ -239,7 +259,7 @@ test('空文本：ok=false、warning code=empty、标准提示文案', () => {
   assert.equal(r.warnings[0].code, 'empty');
   assert.equal(r.warnings[0].message, '请粘贴一段询盘文本');
   assert.equal(r.filled, 0);
-  assert.equal(r.missing.length, 13);
+  assert.equal(r.missing.length, 16);
 });
 
 test('空文本：空白/换行/null/undefined 均不抛异常', () => {
@@ -425,13 +445,132 @@ test('productModel：显式「型号：XXX」标注兜底', () => {
   assert.equal(r.fields.productModel, 'TC-500');
 });
 
-test('v1.1：filled + missing.length = 13，新字段带 evidence', () => {
+test('v1.2：filled + missing.length = 16，各版本新字段带 evidence', () => {
   [resultA, resultB, resultC].forEach((r) => {
-    assert.equal(r.filled + r.missing.length, 13);
+    assert.equal(r.filled + r.missing.length, 16);
   });
   assert.ok(resultA.evidence.productModel && resultA.evidence.mainBusiness);
   assert.ok(resultB.evidence.productModel);
   assert.ok(resultC.evidence.mainBusiness);
+});
+
+/* ==================================================================== */
+/* 5c. v1.2 新增字段：联系方式 email / phone / address                   */
+/* ==================================================================== */
+
+test('email：中文标签「邮箱：」并带 evidence', () => {
+  const r = parser.recognize('联系人 Michael Braun，邮箱：michael.braun@braun-trading.de，请报价。', OPTS);
+  assert.equal(r.fields.email, 'michael.braun@braun-trading.de');
+  assert.ok(r.evidence.email && r.evidence.email.snippet.indexOf('michael.braun') !== -1,
+    'evidence=' + JSON.stringify(r.evidence.email));
+});
+
+test('email：英文标签 Email: 且允许 + 号', () => {
+  const r = parser.recognize('Please email Sarah at Email: sarah.johnson+nordic@gmail.com for details.', OPTS);
+  assert.equal(r.fields.email, 'sarah.johnson+nordic@gmail.com');
+});
+
+test('email：裸邮箱可识别；多个邮箱只取第一个', () => {
+  const r1 = parser.recognize('请把报价发到 info@abc-trading.com 谢谢。', OPTS);
+  assert.equal(r1.fields.email, 'info@abc-trading.com');
+  const r2 = parser.recognize('邮箱：first@x.com，备用 second@y.com。', OPTS);
+  assert.equal(r2.fields.email, 'first@x.com');
+});
+
+test('phone：国际格式（Tel: +49 711 4567 890）保留原始格式', () => {
+  const r = parser.recognize('Tel: +49 711 4567 890，请联系我们。', OPTS);
+  assert.equal(r.fields.phone, '+49 711 4567 890');
+  assert.ok(r.evidence.phone && r.evidence.phone.snippet.indexOf('+49') !== -1,
+    'evidence=' + JSON.stringify(r.evidence.phone));
+});
+
+test('phone：(020) 7946 0123 与 0086-13800138000', () => {
+  const r1 = parser.recognize('电话：(020) 7946 0123。', OPTS);
+  assert.equal(r1.fields.phone, '(020) 7946 0123');
+  const r2 = parser.recognize('联系方式 0086-13800138000。', OPTS);
+  assert.equal(r2.fields.phone, '0086-13800138000');
+});
+
+test('phone：中文手机号 13800138000', () => {
+  const r = parser.recognize('手机：13800138000。', OPTS);
+  assert.equal(r.fields.phone, '13800138000');
+});
+
+test('phone：WhatsApp: +1 503 555 0142', () => {
+  const r = parser.recognize('WhatsApp: +1 503 555 0142', OPTS);
+  assert.equal(r.fields.phone, '+1 503 555 0142');
+});
+
+test('phone 防误判：日期 / 金额 / 订单号都不是电话', () => {
+  const cases = [
+    '2026-09-12 收到询盘，日期 2026年9月12日。',
+    '年营收约1200万欧元，采购额 12 million USD。',
+    '订单号 PO 20261122 已确认。'
+  ];
+  cases.forEach((text) => {
+    const r = parser.recognize(text, OPTS);
+    assert.equal(r.fields.phone, undefined, '误判电话：' + text + ' => ' + r.fields.phone);
+  });
+});
+
+test('address：中文公司地址标签（去标签词）', () => {
+  const r = parser.recognize('公司地址：浙江省宁波市鄞州区天童南路88号，请寄样品。', OPTS);
+  assert.equal(r.fields.address, '浙江省宁波市鄞州区天童南路88号');
+});
+
+test('address：位于 + 省市路号', () => {
+  const r = parser.recognize('公司位于广东省深圳市南山区科技园路1号。', OPTS);
+  assert.equal(r.fields.address, '广东省深圳市南山区科技园路1号');
+});
+
+test('address：英文 Address / Office 标签', () => {
+  const r1 = parser.recognize('Our Address: Industriestr. 12, 70565 Stuttgart, Germany', OPTS);
+  assert.ok((r1.fields.address || '').indexOf('Stuttgart') !== -1, 'address=' + r1.fields.address);
+  const r2 = parser.recognize('Office: 12 Baker Street, London, UK', OPTS);
+  assert.ok((r2.fields.address || '').indexOf('Baker Street') !== -1, 'address=' + r2.fields.address);
+});
+
+test('address：邮箱地址里的「地址」不算通讯地址', () => {
+  const r = parser.recognize('邮箱地址：a@b.com', OPTS);
+  assert.equal(r.fields.email, 'a@b.com');
+  assert.equal(r.fields.address, undefined);
+});
+
+test('phone 防误判：邮箱里的数字不算电话', () => {
+  const r = parser.recognize('邮箱：13800138000@qq.com，请报价。', OPTS);
+  assert.equal(r.fields.email, '13800138000@qq.com');
+  assert.equal(r.fields.phone, undefined);
+});
+
+test('address：中文标签 + 英文地址（含逗号）', () => {
+  const r = parser.recognize('公司地址：Industriestr. 12, 70565 Stuttgart, Germany', OPTS);
+  assert.ok((r.fields.address || '').indexOf('Stuttgart') !== -1, 'address=' + r.fields.address);
+});
+
+test('address：≤200 字且不含标签词', () => {
+  const r = parser.recognize('公司地址：' + '浙'.repeat(300), OPTS);
+  const v = r.fields.address || '';
+  assert.ok(v.length > 0 && v.length <= 200, 'address 长度 ' + v.length);
+  assert.ok(v.indexOf('公司地址') === -1, 'address 不应含标签词：' + v);
+});
+
+test('无联系方式：email/phone/address 均不输出并计入 missing', () => {
+  const r = parser.recognize('Michael Braun 询问不锈钢保温杯价格。', OPTS);
+  assert.equal(r.fields.email, undefined);
+  assert.equal(r.fields.phone, undefined);
+  assert.equal(r.fields.address, undefined);
+  ['email', 'phone', 'address'].forEach((k) => {
+    assert.ok(r.missing.indexOf(k) !== -1, k + ' 未计入 missing');
+  });
+});
+
+test('v1.2：三种联系方式同时识别，filled+missing=16 且都有 evidence', () => {
+  const r = parser.recognize('邮箱：a@b.com，电话：13800138000，地址：浙江省宁波市鄞州区天童南路88号。', OPTS);
+  assert.equal(r.fields.email, 'a@b.com');
+  assert.equal(r.fields.phone, '13800138000');
+  assert.equal(r.fields.address, '浙江省宁波市鄞州区天童南路88号');
+  assert.ok(r.evidence.email && r.evidence.phone && r.evidence.address);
+  assert.equal(r.filled + r.missing.length, 16);
 });
 
 /* ==================================================================== */
@@ -550,7 +689,7 @@ test('UMD：浏览器式加载（无 require、有 window.CRM_SCHEMA）挂到 wi
   assert.equal(typeof sandbox.CrmParser.recognize, 'function');
   assert.ok(sandbox.CrmParser.SAMPLE_TEXTS.length >= 3);
   const r = sandbox.CrmParser.recognize(TEXT_A, OPTS);
-  assert.equal(r.filled, 13);
+  assert.equal(r.filled, 16);
   assert.equal(r.fields.country, '德国');
 });
 

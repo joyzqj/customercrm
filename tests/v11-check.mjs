@@ -37,8 +37,8 @@ try {
     firstProduct: window.CustomerCRM.store.listProducts()[0]
   }))()`);
   console.log('meta =', JSON.stringify(meta));
-  check('版本 1.1.0', meta.version === '1.1.0', meta.version);
-  check('字段 13 个', meta.fields === 13, meta.fields);
+  check('版本 1.2.0', meta.version === '1.2.0', meta.version);
+  check('字段 16 个', meta.fields === 16, meta.fields);
   check('产品库 12 条', meta.products === 12, meta.products);
 
   await page.appNavigate('#/dashboard');

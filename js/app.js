@@ -123,6 +123,12 @@
     if (field.type === 'date') {
       return '<input type="date" ' + common + ' value="' + esc(value || '') + '" required>';
     }
+    if (field.type === 'email') {
+      return '<input type="email" ' + common + ' value="' + esc(value || '') + '" placeholder="' + esc(field.placeholder || '') + '" autocomplete="off" spellcheck="false">';
+    }
+    if (field.type === 'tel') {
+      return '<input type="tel" ' + common + ' value="' + esc(value || '') + '" placeholder="' + esc(field.placeholder || '') + '" autocomplete="off">';
+    }
     if (field.type === 'select' && field.options === 'status') {
       return '<select ' + common + '>' + schema.FOLLOWUP_STATUS.map(function (status) {
         return '<option value="' + esc(status) + '"' + (status === (value || '新询盘') ? ' selected' : '') + '>' + esc(status) + '</option>';
@@ -144,7 +150,8 @@
 
   function fieldHtml(field, value, full) {
     var label = esc(field.label);
-    return '<div class="field' + (full || field.type === 'textarea' ? ' field--full' : '') + '" data-field="' + field.key + '">' +
+    var isFull = !!(full || field.full || field.type === 'textarea');
+    return '<div class="field' + (isFull ? ' field--full' : '') + '" data-field="' + field.key + '">' +
       '<label class="field-label" for="f-' + field.key + '">' + label +
       (field.required ? '<span class="req" aria-hidden="true">*</span>' : '') +
       '</label>' +
@@ -430,7 +437,15 @@
     if (!raw.customerName) errors.customerName = '请填写客户名称';
     else if (raw.customerName.length > 120) errors.customerName = '客户名称请不要超过 120 字';
 
-    var partial = { firstInquiryAt: raw.firstInquiryAt, customerName: raw.customerName, followupStatus: raw.followupStatus, dealStatus: raw.dealStatus };
+    var partial = {
+      firstInquiryAt: raw.firstInquiryAt,
+      customerName: raw.customerName,
+      email: raw.email,
+      phone: raw.phone,
+      address: raw.address,
+      followupStatus: raw.followupStatus,
+      dealStatus: raw.dealStatus
+    };
     var statusCheck = schema.validate(partial);
     Object.keys(statusCheck.errors).forEach(function (key) { if (!errors[key]) errors[key] = statusCheck.errors[key]; });
 
@@ -569,7 +584,8 @@
     var q = filter.q.trim().toLowerCase();
     if (!q) return true;
     var haystack = [
-      rec.customerName, rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
+      rec.customerName, rec.email, rec.phone, rec.address,
+      rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
       rec.country, rec.coreReason, rec.followupStatus, rec.dealStatus, rec.firstInquiryAt,
       rec.foundedAt, rec.teamSize, rec.annualRevenue
     ].concat((rec.followups || []).map(function (item) { return item.note; })).join(' ').toLowerCase();
@@ -832,6 +848,17 @@
       ' <span class="sort-arrow" aria-hidden="true">' + arrow + '</span></button>';
   }
 
+  /** 客户名称单元格：姓名 + 邮箱/电话副行（v1.2） */
+  function customerNameCell(rec) {
+    var contact = [];
+    if (rec.email) contact.push(rec.email);
+    if (rec.phone) contact.push(rec.phone);
+    return '<span class="cell-main">' + esc(rec.customerName || '未命名') + '</span>' +
+      (contact.length
+        ? '<span class="cell-contact" title="' + esc(contact.join(' · ')) + '">' + esc(contact.join(' · ')) + '</span>'
+        : '');
+  }
+
   function customerRowHtml(rec) {
     var detailId = 'detail-' + rec.id;
     var reason = rec.coreReason || '';
@@ -839,7 +866,7 @@
         '<td class="col-expand"><button type="button" class="row-toggle icon-btn icon-btn--sm" data-action="toggle-row" data-id="' + esc(rec.id) + '" data-testid="row-toggle" aria-expanded="' + (state.expanded[rec.id] ? 'true' : 'false') + '" aria-controls="' + detailId + '" aria-label="展开最近三次跟进">' + icon('chevronRight', 14) + '</button></td>' +
         '<td data-col="firstInquiryAt" class="cell-num">' + esc(rec.firstInquiryAt) + '</td>' +
         '<td data-col="age">' + ageCell(rec) + '</td>' +
-        '<td data-col="customerName" class="cell-strong">' + esc(rec.customerName || '未命名') + '</td>' +
+        '<td data-col="customerName" class="cell-strong">' + customerNameCell(rec) + '</td>' +
         '<td data-col="product" class="cell-product" title="' + esc(rec.product) + (rec.productModel ? ' · ' + esc(rec.productModel) : '') + '">' +
           '<span class="cell-strong-inline">' + esc(rec.product || '—') + '</span>' +
           (rec.productModel ? '<span class="cell-sub">' + esc(rec.productModel) + '</span>' : '') +
@@ -847,6 +874,7 @@
         '<td data-col="country" class="cell-country">' + flagText(rec.country) + esc(rec.country || '—') + '</td>' +
         '<td data-col="companyName" title="' + esc(rec.companyName) + '">' + esc(rec.companyName || '—') + '</td>' +
         '<td data-col="mainBusiness" class="cell-muted" title="' + esc(rec.mainBusiness) + '">' + esc(rec.mainBusiness || '—') + '</td>' +
+        '<td data-col="address" class="cell-address" title="' + esc(rec.address) + '">' + esc(rec.address || '—') + '</td>' +
         '<td data-col="foundedAt" class="cell-num">' + esc(rec.foundedAt || '—') + '</td>' +
         '<td data-col="teamSize">' + esc(rec.teamSize || '—') + '</td>' +
         '<td data-col="annualRevenue">' + esc(rec.annualRevenue || '—') + '</td>' +
@@ -860,9 +888,12 @@
         '</div></td>' +
       '</tr>' +
       '<tr class="row-detail" id="' + detailId + '" data-detail="' + esc(rec.id) + '"' + (state.expanded[rec.id] ? '' : ' hidden') + '>' +
-        '<td colspan="15">' +
+        '<td colspan="16">' +
           '<div class="row-detail-inner">' +
             '<div class="row-detail-meta">' +
+              '<span><i>邮箱</i><a class="contact-link" href="mailto:' + esc(rec.email) + '">' + esc(rec.email || '—') + '</a></span>' +
+              '<span><i>电话</i><a class="contact-link" href="tel:' + esc(String(rec.phone || '').replace(/[^\d+]/g, '')) + '">' + esc(rec.phone || '—') + '</a></span>' +
+              '<span><i>地址</i>' + esc(rec.address || '—') + '</span>' +
               '<span><i>产品型号</i>' + esc(rec.productModel || '—') + '</span>' +
               '<span><i>主营业务</i>' + esc(rec.mainBusiness || '—') + '</span>' +
               '<span><i>成立时间</i>' + esc(rec.foundedAt || '—') + '</span>' +
@@ -935,6 +966,7 @@
           '<th data-col="country" scope="col">国家</th>' +
           '<th data-col="companyName" scope="col">公司名</th>' +
           '<th data-col="mainBusiness" scope="col">主营业务</th>' +
+          '<th data-col="address" scope="col">地址</th>' +
           '<th data-col="foundedAt" scope="col">成立时间</th>' +
           '<th data-col="teamSize" scope="col">团队规模</th>' +
           '<th data-col="annualRevenue" scope="col">年营收</th>' +
@@ -963,7 +995,7 @@
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">客户台账</h2>' +
-          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 13 个核心字段 + 最近三次跟进</p>' +
+          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 16 个核心字段 + 最近三次跟进</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-recognize" data-testid="btn-recognize">' + icon('sparkles', 16) + ' 智能识别</button>' +
@@ -1101,7 +1133,7 @@
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">智能识别 · 一段话自动填表</h2>' +
-          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出产品名称/型号、主营业务等 13 个字段和最近三次跟进。</p>' +
+          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出邮箱/电话/地址、产品名称/型号、主营业务等 16 个字段和最近三次跟进。</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-customers">' + icon('users', 16) + ' 返回客户台账</button>' +
@@ -1337,8 +1369,9 @@
           '</ol>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>② 产品库与咨询产品</h3>' +
+          '<h3>② 联系方式与产品库</h3>' +
           '<ul class="help-list">' +
+            '<li>每位客户可记录<b>邮箱、电话、地址</b>：台账里邮箱/电话显示在客户名称下方，地址在 1600 以上屏幕单独成列，展开行可看完整联系方式（邮箱可点、电话可拨）。</li>' +
             '<li>设置页「产品库」可<b>预录入产品名称 + 型号</b>（默认已带 12 条），支持新增/删除/恢复预置。</li>' +
             '<li>新建客户时「咨询产品」是<b>名称 + 型号联动下拉</b>，选完自动填两个字段，表格里型号以小字显示在产品名下方。</li>' +
             '<li>没有的产品可直接手动输入，点「加入产品库」下次就能下拉选择。</li>' +
@@ -1351,14 +1384,14 @@
             '<li>每位客户最多记录 <b>最近三次</b>跟进，最新一条排最前。</li>' +
             '<li>「距上次跟进」= 今天 − 最近一条跟进日期；没有跟进记录时显示「尚未跟进」。</li>' +
             '<li>颜色：<span class="badge badge--ok">7 天内</span> <span class="badge badge--warn">7-13 天</span> <span class="badge badge--danger">≥14 天</span>，阈值可在设置页调整。</li>' +
-            '<li>表格行首箭头展开，可看到三条跟进记录与产品型号/主营业务/公司规模，并可直接补记。</li>' +
+            '<li>表格行首箭头展开，可看到三条跟进记录与邮箱/电话/地址、产品型号、主营业务、公司规模，并可直接补记。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
           '<h3>④ 一键导出 Excel</h3>' +
           '<ul class="help-list">' +
             '<li>客户台账页「一键导出 Excel」：有筛选时导出<b>当前筛选结果</b>，否则导出全部。</li>' +
-            '<li>文件含两个工作表：<b>客户总表</b>（21 列，含产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
+            '<li>文件含两个工作表：<b>客户总表</b>（24 列，含邮箱/电话/地址、产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
             '<li>表头冻结、自动筛选、列宽与换行都已设置，可直接打印或发给同事。</li>' +
           '</ul>' +
         '</section>' +
@@ -1381,7 +1414,7 @@
         '<div class="card-head"><div><h3 class="card-title">智能识别怎么写更容易识别</h3><p class="card-sub">规则引擎：标签越清晰、日期越规范，命中率越高</p></div></div>' +
         '<div class="card-body">' +
           '<ul class="help-list help-list--wide">' +
-            '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。</li>' +
+            '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。留上邮箱、电话、地址（如「邮箱 m.braun@braun-trading.de，电话 +49 711 4567 890，地址 Industriestr. 12, Stuttgart」）会自动填入联系方式。</li>' +
             '<li>用「成立于」「团队」「年营收」这类标签词描述公司背景，识别成立时间 / 团队规模 / 年营收最稳。</li>' +
             '<li>写清「主营/从事/进口/分销」与产品规格（如「500ml」「16 件套」），主营业务与产品型号也会自动识别。</li>' +
             '<li>跟进记录写成「日期 + 做了什么」，例如「11月18日邮件确认样品尺寸」，会被归入最近三次跟进。</li>' +

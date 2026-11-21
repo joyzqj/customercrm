@@ -25,10 +25,11 @@ function eq(name, actual, expected) {
 
 /* ---------------- 字段与枚举 ---------------- */
 
-eq('字段数量为 13', schema.FIELDS.length, 13);
+eq('字段数量为 16', schema.FIELDS.length, 16);
 eq('字段顺序', schema.FIELDS.map((f) => f.key), [
-  'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
-  'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+  'firstInquiryAt', 'customerName', 'email', 'phone', 'address',
+  'product', 'productModel', 'country', 'companyName', 'mainBusiness',
+  'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
 ]);
 ok('每个字段都有 excel 表头与宽度', schema.FIELDS.every((f) => f.excel && f.width > 0));
 ok('产品库预置 ≥ 10 条', schema.DEFAULT_PRODUCTS.length >= 10, schema.DEFAULT_PRODUCTS.length);
@@ -43,7 +44,7 @@ ok('国家名不重复', new Set(countryNames).size === countryNames.length);
 const isoCodes = schema.COUNTRIES.map((c) => c.iso);
 ok('ISO 码不重复', new Set(isoCodes).size === isoCodes.length);
 ok('国家表都有 en 名', schema.COUNTRIES.every((c) => c.en && c.en.length > 1));
-ok('FIELD_GROUPS 覆盖全部字段', schema.FIELD_GROUPS.flatMap((g) => g.keys).length === 13);
+ok('FIELD_GROUPS 覆盖全部字段', schema.FIELD_GROUPS.flatMap((g) => g.keys).length === 16);
 
 /* ---------------- 日期工具 ---------------- */
 
@@ -228,6 +229,38 @@ eq('derive mainBusiness', v11d.mainBusiness, '户外用品进口分销');
 eq('emptyRecord productModel 空', schema.emptyRecord().productModel, '');
 eq('emptyRecord mainBusiness 空', schema.emptyRecord().mainBusiness, '');
 ok('产品库存在同名多型号', schema.DEFAULT_PRODUCTS.filter((p) => p.name === '不锈钢保温杯').length >= 2);
+
+/* ---------------- v1.2 新增字段：邮箱 / 电话 / 地址 ---------------- */
+
+const v12 = schema.normalize({
+  firstInquiryAt: '2026-10-01',
+  customerName: 'V12',
+  email: 'm.braun@braun-trading.de',
+  phone: '+49 711 4567 890',
+  address: 'Industriestr. 12, 70565 Stuttgart, Germany'
+});
+eq('normalize email', v12.email, 'm.braun@braun-trading.de');
+eq('normalize phone', v12.phone, '+49 711 4567 890');
+eq('normalize address', v12.address, 'Industriestr. 12, 70565 Stuttgart, Germany');
+const v12d = schema.derive(v12, { today });
+eq('derive email', v12d.email, 'm.braun@braun-trading.de');
+eq('derive phone', v12d.phone, '+49 711 4567 890');
+eq('derive address', v12d.address, 'Industriestr. 12, 70565 Stuttgart, Germany');
+eq('emptyRecord email 空', schema.emptyRecord().email, '');
+eq('emptyRecord phone 空', schema.emptyRecord().phone, '');
+eq('emptyRecord address 空', schema.emptyRecord().address, '');
+
+ok('邮箱合法性：正常', schema.isValidEmail('a@b.co') === true);
+ok('邮箱合法性：带点号/加号', schema.isValidEmail('first.last+crm@sub.example.com') === true);
+ok('邮箱合法性：空值允许', schema.isValidEmail('') === true);
+ok('邮箱合法性：缺 @', schema.isValidEmail('abc.example.com') === false);
+ok('邮箱合法性：缺域名后缀', schema.isValidEmail('a@b') === false);
+ok('邮箱合法性：含空格', schema.isValidEmail('a b@c.com') === false);
+const emailBad = schema.validate({ firstInquiryAt: '2026-09-12', customerName: 'X', email: 'bad-email' });
+eq('validate 拒绝非法邮箱', emailBad.ok, false);
+ok('validate 邮箱错误字段', !!emailBad.errors.email);
+const emailOk = schema.validate({ firstInquiryAt: '2026-09-12', customerName: 'X', email: 'x@y.com', phone: '+1 555 0100', address: 'Somewhere 1' });
+eq('validate 通过合法联系方式', emailOk.ok, true);
 
 /* ---------------- 汇总 ---------------- */
 

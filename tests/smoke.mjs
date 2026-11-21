@@ -79,7 +79,7 @@ try {
     const row = document.querySelector('tr.row');
     return row ? row.querySelectorAll('td').length : 0;
   })()`);
-  check('表格列数 15', cells === 15, cells);
+  check('表格列数 16', cells === 16, cells);
   await page.screenshot(path.join(SHOTS, 'customers-1440.png'));
 
   // 展开行详情
@@ -114,8 +114,11 @@ try {
   const nameValue = await page.evaluate(`(() => { const el = document.querySelector('#customer-form [name="customerName"]'); return el ? el.value : 'x'; })()`);
   check('新建客户必填校验', nameValue === '' ? !!formError : true, `formError=${formError}`);
 
-  // 填表并保存（v1.1：产品库下拉 + 主营业务）
+  // 填表并保存（v1.2：联系方式 + 产品库下拉 + 主营业务）
   await page.fill('customerName', '烟测客户 Alpha');
+  await page.fill('email', 'alpha@smoke-test.com');
+  await page.fill('phone', '+49 711 000 111');
+  await page.fill('address', 'Teststr. 1, 70565 Stuttgart, Germany');
   await page.fill('country', '德国');
   await page.fill('companyName', 'Smoke Test GmbH');
   await page.fill('mainBusiness', '户外用品进口分销');
@@ -149,12 +152,35 @@ try {
   check('保存后弹窗关闭', afterSave.modal === false);
   const savedRec = await page.evaluate(`(() => {
     const rec = window.CustomerCRM.store.list().find(r => r.customerName === '烟测客户 Alpha');
-    return rec ? { product: rec.product, model: rec.productModel, business: rec.mainBusiness } : null;
+    return rec ? { product: rec.product, model: rec.productModel, business: rec.mainBusiness, email: rec.email, phone: rec.phone, address: rec.address } : null;
   })()`);
   check('咨询产品/型号已保存', !!savedRec && savedRec.product === '不锈钢保温杯' && !!savedRec.model, JSON.stringify(savedRec));
   check('主营业务已保存', !!savedRec && savedRec.business === '户外用品进口分销', JSON.stringify(savedRec));
+  check('邮箱/电话/地址已保存', !!savedRec && savedRec.email === 'alpha@smoke-test.com' && savedRec.phone === '+49 711 000 111' && /Teststr/.test(savedRec.address || ''), JSON.stringify(savedRec));
+  const contactCell = await page.evaluate(`(() => {
+    const row = Array.from(document.querySelectorAll('tr.row')).find(tr => tr.textContent.includes('烟测客户 Alpha'));
+    if (!row) return null;
+    const cell = row.querySelector('td[data-col="customerName"]');
+    return cell ? cell.innerHTML : null;
+  })()`);
+  check('名称单元格显示邮箱/电话', !!contactCell && /cell-contact/.test(contactCell) && /alpha@smoke-test\.com/.test(contactCell), contactCell);
   const rowVisible = await page.evaluate(`(() => Array.from(document.querySelectorAll('tr.row td')).some(td => td.textContent.includes('烟测客户 Alpha')))()`);
   check('保存后表格出现新客户', rowVisible);
+
+  // 邮箱格式校验
+  await page.click('[data-testid="new-customer"]');
+  await page.waitUntil('!!document.querySelector("#customer-form")', { timeout: 8000 });
+  await page.fill('customerName', '邮箱校验客户');
+  await page.fill('email', 'not-an-email');
+  await page.click('[data-testid="btn-save-customer"]');
+  await sleep(150);
+  const emailErr = await page.evaluate(`(() => {
+    const tip = document.querySelector('#customer-form [data-error-for="email"]');
+    return tip && !tip.hidden ? tip.textContent : '';
+  })()`);
+  check('非法邮箱被拦下', /邮箱/.test(emailErr), emailErr);
+  await page.click('[data-testid="btn-cancel-customer"]');
+  await sleep(150);
 
   // 删除测试客户
   const newId = await page.evaluate(`(() => { const rec = window.CustomerCRM.store.list().find(r => r.customerName === '烟测客户 Alpha'); return rec ? rec.id : ''; })()`);
@@ -175,7 +201,7 @@ try {
       return { items, filled: document.querySelectorAll('.recog-item--filled').length, hasResult: !!document.querySelector('.recog-list') };
     })()`);
     await sleep(200);
-    check('识别结果 13 项', result.items === 13, result.items);
+    check('识别结果 16 项', result.items === 16, result.items);
     check('识别命中 ≥ 6 项', result.filled >= 6, result.filled);
     await page.screenshot(path.join(SHOTS, 'recognize-result-1440.png'));
 

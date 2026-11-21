@@ -700,14 +700,17 @@
   }
 
   /* ================================================================== */
-  /* 6. 客户台账导出：两个工作表、21 + 11 列（v1.1）                       */
+  /* 6. 客户台账导出：两个工作表、24 + 13 列（v1.2）                       */
   /* ================================================================== */
 
-  /* v1.1：客户总表 21 列（新增「产品型号」「主营业务」） */
+  /* v1.2：客户总表 24 列（客户名称后新增「邮箱」「电话」「地址」） */
   var TOTAL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
+    { header: '邮箱', width: 26 },
+    { header: '电话', width: 20 },
+    { header: '地址', width: 34 },
     { header: '咨询产品', width: 26 },
     { header: '产品型号', width: 16 },
     { header: '国家', width: 14, align: 'center' },
@@ -728,11 +731,13 @@
     { header: '最近跟进③内容', width: 46, wrap: true }
   ];
 
-  /* v1.1：跟进明细 11 列（新增「主营业务」） */
+  /* v1.2：跟进明细 13 列（客户名称后新增「邮箱」「电话」） */
   var DETAIL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
+    { header: '邮箱', width: 26 },
+    { header: '电话', width: 20 },
     { header: '公司名', width: 30 },
     { header: '主营业务', width: 22 },
     { header: '国家', width: 14, align: 'center' },
@@ -818,6 +823,9 @@
     return {
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
+      email: asText(rec.email),
+      phone: asText(rec.phone),
+      address: asText(rec.address),
       product: asText(rec.product),
       productModel: asText(rec.productModel),
       country: asText(rec.country),
@@ -857,6 +865,9 @@
     return {
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
+      email: asText(rec.email),
+      phone: asText(rec.phone),
+      address: asText(rec.address),
       product: asText(rec.product),
       productModel: asText(rec.productModel),
       country: asText(rec.country),
@@ -957,6 +968,9 @@
         index + 1,
         asText(item.firstInquiryAt),
         asText(item.customerName),
+        asText(item.email),
+        asText(item.phone),
+        asText(item.address),
         asText(item.product),
         asText(item.productModel),
         asText(item.country),
@@ -982,6 +996,8 @@
           seq,
           asText(item.firstInquiryAt),
           asText(item.customerName),
+          asText(item.email),
+          asText(item.phone),
           asText(item.companyName),
           asText(item.mainBusiness),
           asText(item.country),
