@@ -11,7 +11,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var STORAGE_KEY = 'customer-crm.v1';
 
   /* ------------------------------------------------------------------ */
@@ -198,8 +198,13 @@
     },
     {
       key: 'product', label: '咨询产品', type: 'text', required: false,
-      table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品 / 型号 / 规格',
-      placeholder: '不锈钢保温杯 500ml'
+      table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品名称，可从「产品库」下拉选择',
+      placeholder: '不锈钢保温杯'
+    },
+    {
+      key: 'productModel', label: '产品型号', type: 'text', required: false,
+      table: false, excel: '产品型号', width: 16, hint: '与产品名称对应的型号 / 规格，如 500ml、16 件套',
+      placeholder: '500ml'
     },
     {
       key: 'country', label: '国家', type: 'select', required: false,
@@ -210,6 +215,11 @@
       key: 'companyName', label: '公司名', type: 'text', required: false,
       table: true, excel: '公司名', width: 30, hint: '客户公司全称',
       placeholder: 'Braun Trading GmbH'
+    },
+    {
+      key: 'mainBusiness', label: '主营业务', type: 'text', required: false,
+      table: true, excel: '主营业务', width: 22, hint: '客户公司的主营业务 / 主要进口品类，如 户外用品进口分销',
+      placeholder: '户外用品进口分销'
     },
     {
       key: 'foundedAt', label: '成立时间', type: 'text', required: false,
@@ -245,7 +255,7 @@
     {
       title: '客户与公司信息',
       hint: '询盘来源与客户背景，用于判断客户质量与采购能力',
-      keys: ['firstInquiryAt', 'customerName', 'product', 'country', 'companyName', 'foundedAt', 'teamSize', 'annualRevenue']
+      keys: ['firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
     },
     {
       title: '跟进与成交',
@@ -501,8 +511,10 @@
     firstInquiryAt: '',
     customerName: '',
     product: '',
+    productModel: '',
     country: '',
     companyName: '',
+    mainBusiness: '',
     foundedAt: '',
     teamSize: '',
     annualRevenue: '',
@@ -513,6 +525,22 @@
     createdAt: '',
     updatedAt: ''
   };
+
+  /* 产品库预置数据：首次使用 / 清空后恢复时写入，可在设置页增删 */
+  var DEFAULT_PRODUCTS = [
+    { name: '不锈钢保温杯', model: '500ml' },
+    { name: '不锈钢保温杯', model: '750ml' },
+    { name: '不锈钢保温杯', model: '1L' },
+    { name: '不锈钢运动水壶', model: '1L' },
+    { name: '陶瓷餐具套装', model: '16 件套' },
+    { name: '硅胶厨具套装', model: '12 件套' },
+    { name: '户外折叠椅', model: '标准款' },
+    { name: '保温饭盒', model: '1.2L' },
+    { name: '玻璃保鲜盒', model: '5 件套' },
+    { name: '硅胶折叠水杯', model: '500ml' },
+    { name: '密胺餐具', model: '10 件套' },
+    { name: '不粘锅套装', model: '3 件套' }
+  ];
 
   var FIELD_KEYS = FIELDS.map(function (f) { return f.key; });
 
@@ -645,8 +673,10 @@
       firstInquiryAt: rec.firstInquiryAt,
       customerName: rec.customerName || '',
       product: rec.product || '',
+      productModel: rec.productModel || '',
       country: rec.country || '',
       companyName: rec.companyName || '',
+      mainBusiness: rec.mainBusiness || '',
       foundedAt: rec.foundedAt || '',
       teamSize: rec.teamSize || '',
       annualRevenue: rec.annualRevenue || '',
@@ -723,6 +753,7 @@
     FIELD_GROUPS: FIELD_GROUPS,
     FIELD_KEYS: FIELD_KEYS,
     DEFAULT_RECORD: DEFAULT_RECORD,
+    DEFAULT_PRODUCTS: DEFAULT_PRODUCTS,
 
     emptyRecord: emptyRecord,
     normalize: normalize,

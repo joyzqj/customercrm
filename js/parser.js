@@ -26,17 +26,17 @@
   if (!schema && typeof globalThis !== 'undefined' && globalThis.CRM_SCHEMA) { schema = globalThis.CRM_SCHEMA; }
   if (!schema && typeof window !== 'undefined' && window.CRM_SCHEMA) { schema = window.CRM_SCHEMA; }
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
 
-  /* 11 个字段的固定顺序（与 schema.FIELDS 保持一致，缺 schema 时用兜底表） */
+  /* 13 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
   var FALLBACK_FIELD_KEYS = [
-    'firstInquiryAt', 'customerName', 'product', 'country', 'companyName',
-    'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+    'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
+    'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
   ];
   var FIELD_KEYS = FALLBACK_FIELD_KEYS.slice();
   if (schema && Array.isArray(schema.FIELDS) && schema.FIELDS.length) {
     var fromSchema = schema.FIELDS.map(function (f) { return f.key; });
-    if (fromSchema.length === FALLBACK_FIELD_KEYS.length) { FIELD_KEYS = fromSchema; }
+    if (fromSchema.length) { FIELD_KEYS = fromSchema; }
   }
 
   /* 单次识别允许处理的最大字符数（超长文本截断，保证性能与稳定性） */
@@ -576,7 +576,8 @@
 
   /**
    * 依次尝试 rules，返回第一个通过 pick 校验的匹配结果。
-   * rule: { id, re(global), pick(m) -> {value,index,len}|null }
+   * rule: { id, re(global), pick(m, text) -> {value,index,len}|null }
+   * 个别规则（如主营业务）需要看匹配位置前后的上下文，故把全文 text 传给 pick。
    */
   function pickFirstRule(rules, text) {
     for (var i = 0; i < rules.length; i += 1) {
@@ -586,7 +587,7 @@
       var m = re.exec(text);
       while (m !== null) {
         if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(text); continue; }
-        var hit = rule.pick(m);
+        var hit = rule.pick(m, text);
         if (hit) {
           hit.rule = rule.id;
           return hit;
@@ -763,7 +764,7 @@
     t = t.replace(/^(?:我们的|我司的|我公司的|我们|我司|本公司|这款|该款|一款|一批|一个|一套|the|our|a|an)\s*/i, '');
     t = t.replace(/^(?:采购|购买|订购|询购|求购|需要)\s*/, '');
     t = t.replace(/\s*(?:的)?(?:价格|报价单|报价|价钱|quotation|price|quote)\s*$/i, '');
-    t = t.replace(/[，。；;,、：:！!？?]+$/g, '').trim();
+    t = t.replace(/[.，。；;,、：:！!？?]+$/g, '').trim();
     if (!t) { return ''; }
     if (/(?:有限公司|有限责任公司|集团|GmbH|Co\.,?\s*Ltd|LLC|Inc\.?|Corp\.?)/i.test(t)) { return ''; }
     if (t.length > 60) { t = t.slice(0, 60); }
@@ -812,9 +813,9 @@
       }
     },
     {
-      /* 英文：regarding our … / inquiry about … / interested in … */
+      /* 英文：regarding our … / inquiry about … / interested in … / please quote … */
       id: 'product.en',
-      re: /(?:regarding|inquir(?:y|ies)\s+(?:about|for|on)|enquir(?:y|ies)\s+(?:about|for|on)|interested\s+in|asking\s+about|asking\s+for|asked\s+about|asked\s+for|quotation\s+for|quote\s+for|looking\s+for|wrote\s+about|emailed\s+(?:us\s+)?about)\s+(?:our|the|a|an|your)?\s*([^。.;,!\n?]{2,80})/gi,
+      re: /(?:regarding|inquir(?:y|ies)\s+(?:about|for|on)|enquir(?:y|ies)\s+(?:about|for|on)|interested\s+in|asking\s+about|asking\s+for|asked\s+about|asked\s+for|quotation\s+for|quote\s+for|please\s+quote|looking\s+for|wrote\s+about|emailed\s+(?:us\s+)?about)\s+(?:our|the|a|an|your)?\s*((?:[^。;,!\n?.]|\.(?!\s|$)){2,80})/gi,
       pick: function (m) {
         var value = cleanProduct(m[1]);
         if (!value) { return null; }
@@ -822,6 +823,219 @@
       }
     }
   ];
+
+  /* ================================================================== */
+  /* 7b. 主营业务 / 产品型号（v1.1 新增字段）                              */
+  /* ================================================================== */
+
+  /* ---------- 7b.1 主营业务 mainBusiness ---------- */
+
+  /* 主语是「我们/同行/竞争对手」时，说的不是客户的主营业务，直接跳过 */
+  var BUSINESS_NOISE_RE = /(?:我们|我司|我公司|本公司|我方|我厂|竞争对手|同行|另一家|其他供应商|竞品|对手)/;
+
+  /** 找到匹配位置所在「分句」的起点（用于判断分句主语） */
+  function clauseStartIndex(text, index) {
+    var i = index - 1;
+    while (i >= 0) {
+      var c = text.charAt(i);
+      if ('。；;，,\n\r！!？?'.indexOf(c) !== -1) { break; }
+      i -= 1;
+    }
+    return i + 1;
+  }
+
+  function businessNoise(text, index, matchText) {
+    var start = clauseStartIndex(text, index);
+    if (BUSINESS_NOISE_RE.test(text.slice(start, index))) { return true; }
+    /* 「主营产品/主营商品」多指我方产品，不是客户业务 */
+    if (/(?:主营|主要经营|主要业务|主要从事于|主要从事|业务范围|经营范围|专营)\s*(?:产品|商品|品类)/.test(matchText)) { return true; }
+    if (/^(?:做|从事|经营)(?:好|得|完|成)/.test(matchText)) { return true; }
+    return false;
+  }
+
+  /** 清洗主营业务：去连接词/主语前缀、去尾缀，≤30 字 */
+  function cleanBusiness(value) {
+    var t = collapseSpace(value);
+    var lead = /^(?:[\s:：,，。;；、\-–—]+|即|就是|是|为|一家|一个|的|我们|我司|我公司|本公司|客户|他们|其|该公司|公司)+/;
+    for (var i = 0; i < 4 && lead.test(t); i += 1) { t = t.replace(lead, ''); }
+    t = t.replace(/[\s:：,，。;；、]+$/, '');
+    t = t.replace(/(?:的公司|的企业|等业务|业务|的公司)$/, '');
+    if (!t) { return ''; }
+    if (t.length > 30) {
+      t = t.slice(0, 30);
+      if (/^[A-Za-z]/.test(t)) {
+        var space = t.lastIndexOf(' ');
+        if (space > 12) { t = t.slice(0, space); }
+      }
+    }
+    /* 截断后可能留下悬空的连接词，去掉 */
+    t = t.replace(/\s+(?:and|or|of|for|with|the|a|an|to|in|&)$/i, '');
+    t = collapseSpace(t);
+    return t.length >= 2 ? t : '';
+  }
+
+  var BUSINESS_ROLE_MAP = {
+    '进口商': '进口', '出口商': '出口', '批发商': '批发', '分销商': '分销',
+    '零售商': '零售', '代理商': '代理', '经销商': '经销'
+  };
+
+  var BUSINESS_RULES = [
+    {
+      /* 主营户外用品 / 主要从事家居用品 / 业务范围：厨房用品 */
+      id: 'business.cn-label',
+      re: /(?:主营业务|主营|主要经营|主要业务|主要从事于|主要从事|业务范围|经营范围|专营)\s*(?:业务|范围|是|为|有|：|:)?\s*([^，,。；;、\n！!？?]{2,40})/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1]);
+        if (!value) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* 做家居用品进口 / 从事户外用品批发 / 经营五金分销 */
+      id: 'business.cn-trade',
+      re: /(?:做|从事|经营|主营)(?!状况|情况|困难)(?:的是|着)?\s*([^，,。；;、\n！!？?]{2,30}?)\s*(进口|出口|批发|分销|零售|贸易|代理|经销)/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1] + m[2]);
+        if (!value || value.length < 3) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* 是一家家居用品进口商 / 户外用品分销商 */
+      id: 'business.cn-role',
+      re: /([\u4e00-\u9fa5A-Za-z]{2,20})(?:的)?(进口商|出口商|批发商|分销商|零售商|代理商|经销商)/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1] + (BUSINESS_ROLE_MAP[m[2]] || ''));
+        if (!value || value.length < 3) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* English: specialized in / mainly deals in / distributor of / importer of / wholesaler of */
+      id: 'business.en',
+      re: /(?:speciali[sz](?:e|es|ed|ing)\s+in|mainly\s+(?:deals?|trades?)\s+in|deals?\s+mainly\s+in|distributor\s+of|importer\s+of|wholesaler\s+of|retailer\s+of|trading\s+company\s+(?:of|speciali[sz]ing\s+in)|imports?\s+and\s+distributes|focus(?:es|ed)?\s+on)\s+(?:the\s+)?([^.;,\n]{2,60})/gi,
+      pick: function (m) {
+        var value = cleanBusiness(m[1]);
+        if (!value) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    }
+  ];
+
+  function extractMainBusiness(norm) {
+    return pickFirstRule(BUSINESS_RULES, norm);
+  }
+
+  /* ---------- 7b.2 产品型号 productModel ---------- */
+
+  /* 规格模式：容量 / 件套 / pcs / 尺寸 / 套装 */
+  var MODEL_PATTERNS = [
+    { id: 'model.capacity', re: /(\d+(?:\.\d+)?)\s*(ml|毫升|l|升)(?![\w])/gi },
+    { id: 'model.count', re: /(\d+)\s*(件套|件套装|件装|pcs\.?|pieces?|pc|套)(?![\w])/gi },
+    { id: 'model.set', re: /(\d+)\s*-\s*(?:pieces?|pcs?|pc)\s+set/gi },
+    { id: 'model.size', re: /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*(cm|mm|厘米|毫米|inch|英寸)?/g }
+  ];
+
+  /* 显式标注的型号（型号/规格/model/SKU…），产品短语里没规格时兜底 */
+  var MODEL_LABEL_RE = /(?:产品型号|型号|规格|model(?:\s*(?:no\.?|number))?|item\s*(?:no\.?|code)|sku|货号|款号)\s*[：:#]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{0,24})/gi;
+
+  function normalizeModelToken(m, kind) {
+    if (kind === 'model.capacity') {
+      var unit = String(m[2]).toLowerCase();
+      return String(m[1]) + (unit === 'ml' || unit === '毫升' ? 'ml' : 'L');
+    }
+    if (kind === 'model.count') {
+      var u = String(m[2]).toLowerCase().replace(/\.$/, '');
+      var n = String(m[1]);
+      if (u === 'pcs' || u === 'pc' || u === 'piece' || u === 'pieces') { return n + ' pcs'; }
+      if (u === '件套' || u === '件套装') { return n + ' 件套'; }
+      if (u === '件装') { return n + ' 件装'; }
+      return n + ' 套';
+    }
+    if (kind === 'model.set') { return String(m[1]) + '-piece set'; }
+    if (kind === 'model.size') {
+      var dimUnit = m[3] ? String(m[3]).toLowerCase() : '';
+      if (dimUnit === '英寸') { dimUnit = 'inch'; }
+      return String(m[1]) + '×' + String(m[2]) + dimUnit;
+    }
+    return '';
+  }
+
+  /** 从一段产品短语里收集规格 token（按出现顺序、去重） */
+  function collectModelTokens(text) {
+    if (!text) { return []; }
+    var found = [];
+    for (var p = 0; p < MODEL_PATTERNS.length; p += 1) {
+      var def = MODEL_PATTERNS[p];
+      def.re.lastIndex = 0;
+      var m = def.re.exec(text);
+      while (m !== null) {
+        if (m[0].length === 0) { def.re.lastIndex += 1; m = def.re.exec(text); continue; }
+        var token = normalizeModelToken(m, def.id);
+        if (token) { found.push({ token: token, index: m.index }); }
+        m = def.re.exec(text);
+      }
+    }
+    found.sort(function (a, b) { return a.index - b.index; });
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < found.length; i += 1) {
+      if (seen[found[i].token]) { continue; }
+      seen[found[i].token] = 1;
+      out.push(found[i]);
+    }
+    return out;
+  }
+
+  /** 在原文中定位型号的位置（evidence 用；空格/大小写做宽松匹配） */
+  function locateModel(norm, token) {
+    var idx = norm.indexOf(token);
+    if (idx !== -1) { return { index: idx, len: token.length }; }
+    var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    var m = new RegExp(escaped, 'i').exec(norm);
+    if (m) { return { index: m.index, len: m[0].length }; }
+    return null;
+  }
+
+  /**
+   * 产品型号：优先从已识别的产品短语中抽规格；
+   * 抽不到时再看全文里「型号：XXX」这类显式标注；都没有则不输出。
+   * productHit 为产品字段的匹配位置，用于 evidence 兜底。
+   */
+  function extractProductModel(norm, productText, productHit) {
+    var tokens = collectModelTokens(productText);
+    if (tokens.length) {
+      var values = [];
+      var total = 0;
+      for (var i = 0; i < tokens.length && values.length < 3; i += 1) {
+        var token = tokens[i].token;
+        if (total + token.length + (values.length ? 1 : 0) > 30) { break; }
+        values.push(token);
+        total += token.length + 1;
+      }
+      if (values.length) {
+        var found = locateModel(norm, values[0]);
+        if (!found && productHit) { found = { index: productHit.index, len: productHit.len }; }
+        if (found) {
+          return { value: values.join(' '), index: found.index, len: found.len, rule: 'model.product' };
+        }
+      }
+    }
+    MODEL_LABEL_RE.lastIndex = 0;
+    var m = MODEL_LABEL_RE.exec(norm);
+    while (m !== null) {
+      if (m[0].length === 0) { MODEL_LABEL_RE.lastIndex += 1; m = MODEL_LABEL_RE.exec(norm); continue; }
+      var label = String(m[1] || '').replace(/[.\-_/]+$/, '');
+      if (label.length >= 2 && /\d/.test(label)) {
+        return { value: label, index: m.index + m[0].indexOf(m[1]), len: m[1].length, rule: 'model.label' };
+      }
+      m = MODEL_LABEL_RE.exec(norm);
+    }
+    return null;
+  }
 
   /* ================================================================== */
   /* 8. 跟进状态 / 成交状态                                               */
@@ -1104,6 +1318,18 @@
       /* 8) 咨询产品 */
       var product = pickFirstRule(PRODUCT_RULES, norm);
       if (product) { setField(ctx, 'product', product.value, product.index, product.len, product.rule); }
+
+      /* 8b) 产品型号（v1.1：从产品短语抽规格，无则不出） */
+      var model = extractProductModel(norm, product ? product.value : '', product);
+      if (model) {
+        setField(ctx, 'productModel', model.value, model.index, model.len, model.rule);
+      }
+
+      /* 8c) 主营业务（v1.1） */
+      var business = extractMainBusiness(norm);
+      if (business) {
+        setField(ctx, 'mainBusiness', business.value, business.index, business.len, business.rule);
+      }
 
       /* 9) 跟进状态：识别不到则按契约给默认「新询盘」 */
       var status = pickFirstRule(STATUS_RULES, norm);

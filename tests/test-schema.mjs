@@ -25,11 +25,14 @@ function eq(name, actual, expected) {
 
 /* ---------------- 字段与枚举 ---------------- */
 
-eq('字段数量为 11', schema.FIELDS.length, 11);
+eq('字段数量为 13', schema.FIELDS.length, 13);
 eq('字段顺序', schema.FIELDS.map((f) => f.key), [
-  'firstInquiryAt', 'customerName', 'product', 'country', 'companyName', 'foundedAt',
-  'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+  'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
+  'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
 ]);
+ok('每个字段都有 excel 表头与宽度', schema.FIELDS.every((f) => f.excel && f.width > 0));
+ok('产品库预置 ≥ 10 条', schema.DEFAULT_PRODUCTS.length >= 10, schema.DEFAULT_PRODUCTS.length);
+ok('预置产品都有名称与型号', schema.DEFAULT_PRODUCTS.every((p) => p.name && p.model));
 ok('必填字段只有两个', schema.FIELDS.filter((f) => f.required).length === 2);
 ok('跟进状态 8 项', schema.FOLLOWUP_STATUS.length === 8, schema.FOLLOWUP_STATUS.join(','));
 ok('成交状态 2 项', schema.DEAL_STATUS.length === 2);
@@ -40,7 +43,7 @@ ok('国家名不重复', new Set(countryNames).size === countryNames.length);
 const isoCodes = schema.COUNTRIES.map((c) => c.iso);
 ok('ISO 码不重复', new Set(isoCodes).size === isoCodes.length);
 ok('国家表都有 en 名', schema.COUNTRIES.every((c) => c.en && c.en.length > 1));
-ok('FIELD_GROUPS 覆盖全部字段', schema.FIELD_GROUPS.flatMap((g) => g.keys).length === 11);
+ok('FIELD_GROUPS 覆盖全部字段', schema.FIELD_GROUPS.flatMap((g) => g.keys).length === 13);
 
 /* ---------------- 日期工具 ---------------- */
 
@@ -207,6 +210,24 @@ eq('formatShort', schema.formatShort('2026-11-18'), '11-18');
 eq('formatShort 带年', schema.formatShort('2026-11-18', true), '2026-11-18');
 ok('formatDateTime', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(schema.formatDateTime('2026-11-18T09:30:00.000Z')), schema.formatDateTime('2026-11-18T09:30:00.000Z'));
 eq('STORAGE_KEY', schema.STORAGE_KEY, 'customer-crm.v1');
+
+/* ---------------- v1.1 新增字段：产品型号 / 主营业务 ---------------- */
+
+const v11 = schema.normalize({
+  firstInquiryAt: '2026-10-01',
+  customerName: 'V11',
+  product: '不锈钢保温杯',
+  productModel: '500ml',
+  mainBusiness: '户外用品进口分销'
+});
+eq('normalize productModel', v11.productModel, '500ml');
+eq('normalize mainBusiness', v11.mainBusiness, '户外用品进口分销');
+const v11d = schema.derive(v11, { today });
+eq('derive productModel', v11d.productModel, '500ml');
+eq('derive mainBusiness', v11d.mainBusiness, '户外用品进口分销');
+eq('emptyRecord productModel 空', schema.emptyRecord().productModel, '');
+eq('emptyRecord mainBusiness 空', schema.emptyRecord().mainBusiness, '');
+ok('产品库存在同名多型号', schema.DEFAULT_PRODUCTS.filter((p) => p.name === '不锈钢保温杯').length >= 2);
 
 /* ---------------- 汇总 ---------------- */
 

@@ -154,6 +154,132 @@
       '</div>';
   }
 
+  /* ---------------- 产品库：产品名称 + 型号 联动选择 ---------------- */
+
+  function catalogNames(products) {
+    var names = [];
+    (products || []).forEach(function (item) {
+      if (item && item.name && names.indexOf(item.name) === -1) names.push(item.name);
+    });
+    return names;
+  }
+
+  /**
+   * 把自由文本产品匹配到产品库：精确同名 → 文本包含库内产品名 → 自定义。
+   * 返回 { name, model, inCatalog }
+   */
+  function matchProductToCatalog(product, model) {
+    var text = String(product || '').trim();
+    var modelText = String(model || '').trim();
+    var products = Store.listProducts();
+    if (!text) return { name: '', model: modelText, inCatalog: false };
+    var names = catalogNames(products);
+    if (names.indexOf(text) !== -1) {
+      var exactModels = products.filter(function (item) { return item.name === text; }).map(function (item) { return item.model; });
+      return { name: text, model: modelText || exactModels[0] || '', inCatalog: true };
+    }
+    var contained = names.filter(function (name) { return text.indexOf(name) !== -1; })
+      .sort(function (a, b) { return b.length - a.length; })[0];
+    if (contained) {
+      var finalModel = modelText;
+      if (!finalModel) {
+        var matched = text.match(/(\d+(?:\.\d+)?\s*(?:ml|ML|l|L|升|件套|件|pcs|PCS|kg|g|寸|cm|米))|(\d+\s*[-~—至]\s*\d+\s*(?:件套|件|人|ml|ML))/);
+        if (matched) finalModel = matched[0].replace(/\s+/g, '');
+      }
+      return { name: contained, model: finalModel, inCatalog: true };
+    }
+    return { name: text, model: modelText, inCatalog: false };
+  }
+
+  function productFieldHtml(record) {
+    var rec = record || {};
+    var products = Store.listProducts();
+    var names = catalogNames(products);
+    var matched = matchProductToCatalog(rec.product || '', rec.productModel || '');
+    var custom = !!matched.inCatalog ? false : !!(rec.product || '').trim();
+    var selectedName = custom ? '' : matched.name;
+    var models = custom ? [] : products.filter(function (item) { return item.name === selectedName; })
+      .map(function (item) { return item.model; }).filter(Boolean);
+    if (!custom && matched.model && models.indexOf(matched.model) === -1) models.push(matched.model);
+
+    var nameOptions = '<option value="">请选择产品名称</option>' + names.map(function (name) {
+      var modelCount = products.filter(function (item) { return item.name === name && item.model; }).length;
+      return '<option value="' + esc(name) + '"' + (name === selectedName ? ' selected' : '') + '>' +
+        esc(name) + (modelCount > 1 ? '（' + modelCount + ' 个型号）' : '') + '</option>';
+    }).join('') +
+      '<option value="__custom__"' + (custom ? ' selected' : '') + '>＋ 手动输入其他产品…</option>';
+
+    var modelOptions = '<option value="">' + (custom ? '型号（可留空）' : '请选择型号') + '</option>' + models.map(function (model) {
+      return '<option value="' + esc(model) + '"' + (model === matched.model ? ' selected' : '') + '>' + esc(model) + '</option>';
+    }).join('');
+
+    return '<div class="field field--full" data-field="product">' +
+      '<label class="field-label" for="f-productName">咨询产品</label>' +
+      '<div class="product-picker">' +
+        '<select class="select product-picker-name" id="f-productName" name="productName" data-testid="product-name-select" aria-label="产品名称">' + nameOptions + '</select>' +
+        '<select class="select product-picker-model" name="productModel" data-testid="product-model-select" aria-label="产品型号"' + (custom ? ' hidden' : '') + '>' + modelOptions + '</select>' +
+        '<input type="text" class="input product-custom" name="productCustom" data-testid="product-custom-input" placeholder="产品名称，如 不锈钢保温杯" value="' + esc(custom ? (rec.product || '') : '') + '" aria-label="自定义产品名称"' + (custom ? '' : ' hidden') + '>' +
+        '<input type="text" class="input product-custom" name="productModelCustom" placeholder="型号 / 规格，如 500ml" value="' + esc(custom ? (rec.productModel || '') : '') + '" aria-label="自定义产品型号"' + (custom ? '' : ' hidden') + '>' +
+        '<button type="button" class="btn btn--ghost btn--sm product-add-btn" data-action="add-product-from-form"' + (custom && (rec.product || '').trim() ? '' : ' hidden') + '>' + icon('plus', 14) + ' 加入产品库</button>' +
+      '</div>' +
+      '<p class="field-hint">从产品库选择产品名称与型号；没有的产品可手动输入，并一键加入产品库</p>' +
+      '<p class="field-error" data-error-for="product" hidden></p>' +
+      '</div>';
+  }
+
+  function syncProductPicker(nameSelect) {
+    if (!nameSelect) return;
+    var form = document.getElementById('customer-form');
+    if (!form) return;
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    var addBtn = form.querySelector('.product-add-btn');
+    var custom = nameSelect.value === '__custom__';
+
+    if (custom) {
+      if (modelSelect) { modelSelect.hidden = true; }
+      if (customName) { customName.hidden = false; }
+      if (customModel) { customModel.hidden = false; }
+      if (addBtn) addBtn.hidden = false;
+      return;
+    }
+    if (customName) { customName.hidden = true; customName.value = ''; }
+    if (customModel) { customModel.hidden = true; customModel.value = ''; }
+    if (modelSelect) {
+      modelSelect.hidden = false;
+      var models = Store.productModels(nameSelect.value);
+      modelSelect.innerHTML = '<option value="">请选择型号</option>' + models.map(function (model) {
+        return '<option value="' + esc(model) + '">' + esc(model) + '</option>';
+      }).join('');
+      if (models.length === 1) modelSelect.value = models[0];
+    }
+    if (addBtn) addBtn.hidden = true;
+  }
+
+  function addProductFromForm() {
+    var form = document.getElementById('customer-form');
+    if (!form) return null;
+    var nameSelect = form.querySelector('[name="productName"]');
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    var custom = nameSelect && nameSelect.value === '__custom__';
+    var name = custom
+      ? (customName ? String(customName.value || '').trim() : '')
+      : (nameSelect ? nameSelect.value : '');
+    var model = custom
+      ? (customModel ? String(customModel.value || '').trim() : '')
+      : (modelSelect && !modelSelect.hidden ? modelSelect.value : '');
+    if (!name) { core.toast('请先填写产品名称', 'error'); return null; }
+    var product = Store.addProduct({ name: name, model: model });
+    if (!product) { core.toast('产品名称不能为空', 'error'); return null; }
+    core.toast('已加入产品库：' + name + (model ? ' · ' + model : ''), 'ok');
+    var addBtn = form.querySelector('.product-add-btn');
+    if (addBtn) { addBtn.disabled = true; addBtn.innerHTML = icon('check', 14) + ' 已加入'; }
+    return product;
+  }
+
   function followupRowHtml(item, index) {
     return '<div class="followup-row" data-followup-row>' +
       '<input type="date" class="input followup-date-input" data-followup-date value="' + esc(item.date || '') + '" aria-label="第 ' + (index + 1) + ' 次跟进日期">' +
@@ -169,6 +295,8 @@
         '<div class="form-section-title">' + esc(group.title) + '</div>' +
         (group.hint ? '<p class="field-hint form-section-hint">' + esc(group.hint) + '</p>' : '') +
         '<div class="form-grid">' + group.keys.map(function (key) {
+          if (key === 'product') return productFieldHtml(rec);
+          if (key === 'productModel') return '';
           var field = schema.fieldByKey(key);
           return fieldHtml(field, rec[key] || '');
         }).join('') + '</div>' +
@@ -230,6 +358,20 @@
       var el = form.elements[key];
       data[key] = el ? String(el.value || '').trim() : '';
     });
+    /* v1.1：咨询产品由「产品名称下拉 + 型号下拉」或「自定义输入」组成 */
+    var nameSelect = form.querySelector('[name="productName"]');
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    if (nameSelect) {
+      if (nameSelect.value === '__custom__') {
+        data.product = customName ? String(customName.value || '').trim() : '';
+        data.productModel = customModel ? String(customModel.value || '').trim() : '';
+      } else {
+        data.product = nameSelect.value;
+        data.productModel = modelSelect && !modelSelect.hidden ? String(modelSelect.value || '').trim() : '';
+      }
+    }
     var followups = [];
     core.qsa('[data-followup-row]', form).forEach(function (row) {
       var dateEl = row.querySelector('[data-followup-date]');
@@ -427,9 +569,9 @@
     var q = filter.q.trim().toLowerCase();
     if (!q) return true;
     var haystack = [
-      rec.customerName, rec.companyName, rec.product, rec.country, rec.coreReason,
-      rec.followupStatus, rec.dealStatus, rec.firstInquiryAt, rec.foundedAt,
-      rec.teamSize, rec.annualRevenue
+      rec.customerName, rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
+      rec.country, rec.coreReason, rec.followupStatus, rec.dealStatus, rec.firstInquiryAt,
+      rec.foundedAt, rec.teamSize, rec.annualRevenue
     ].concat((rec.followups || []).map(function (item) { return item.note; })).join(' ').toLowerCase();
     return haystack.indexOf(q) !== -1;
   }
@@ -492,6 +634,112 @@
     }).join('') + '</div>';
   }
 
+  /* ---------------- 仪表盘：国家分布扇形图 ---------------- */
+
+  var PIE_COLORS = ['#0d9488', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#10b981', '#64748b', '#ec4899', '#14b8a6', '#f97316'];
+  var PIE_OTHER_COLOR = '#94a3b8';
+
+  /** 取前 6 个国家 + 其余聚合为「其他」 */
+  function pieGroups(byCountry, maxItems) {
+    var limit = maxItems || 6;
+    var sorted = byCountry.slice().sort(function (a, b) { return b.count - a.count; });
+    var top = sorted.slice(0, limit);
+    var rest = sorted.slice(limit);
+    var list = top.map(function (item) {
+      return { name: item.name, count: item.count, flag: schema.countryFlag(item.name), other: false };
+    });
+    if (rest.length) {
+      var restCount = rest.reduce(function (acc, item) { return acc + item.count; }, 0);
+      if (restCount > 0) {
+        list.push({ name: '其他 ' + rest.length + ' 个国家', count: restCount, flag: '', other: true });
+      }
+    }
+    return list;
+  }
+
+  /** 最大余数法：百分比取整且合计恰好 100 */
+  function piePercents(counts) {
+    var total = counts.reduce(function (acc, n) { return acc + n; }, 0) || 1;
+    var raw = counts.map(function (n) { return n / total * 100; });
+    var base = raw.map(function (v) { return Math.floor(v); });
+    var remain = 100 - base.reduce(function (acc, n) { return acc + n; }, 0);
+    var order = raw.map(function (v, i) { return { i: i, frac: v - Math.floor(v) }; })
+      .sort(function (a, b) { return b.frac - a.frac; });
+    for (var k = 0; k < remain; k += 1) base[order[k % order.length].i] += 1;
+    return base;
+  }
+
+  function donutSlicePath(cx, cy, rOuter, rInner, start, end) {
+    var x1 = cx + rOuter * Math.cos(start);
+    var y1 = cy + rOuter * Math.sin(start);
+    var x2 = cx + rOuter * Math.cos(end);
+    var y2 = cy + rOuter * Math.sin(end);
+    var x3 = cx + rInner * Math.cos(end);
+    var y3 = cy + rInner * Math.sin(end);
+    var x4 = cx + rInner * Math.cos(start);
+    var y4 = cy + rInner * Math.sin(start);
+    var large = (end - start) > Math.PI ? 1 : 0;
+    return 'M ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
+      ' A ' + rOuter + ' ' + rOuter + ' 0 ' + large + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) +
+      ' L ' + x3.toFixed(2) + ' ' + y3.toFixed(2) +
+      ' A ' + rInner + ' ' + rInner + ' 0 ' + large + ' 0 ' + x4.toFixed(2) + ' ' + y4.toFixed(2) + ' Z';
+  }
+
+  /** 生成 SVG 环形扇形图 + 图例 */
+  function pieChart(groups, total) {
+    if (!groups.length) return '<p class="hint">暂无客户数据</p>';
+    var sum = groups.reduce(function (acc, item) { return acc + item.count; }, 0) || 1;
+    var percents = piePercents(groups.map(function (item) { return item.count; }));
+    var cx = 100;
+    var cy = 100;
+    var rOuter = 82;
+    var rInner = 52;
+    var angle = -Math.PI / 2;
+    var slices = [];
+
+    groups.forEach(function (item, index) {
+      var frac = item.count / sum;
+      var end = angle + frac * Math.PI * 2;
+      var color = item.other ? PIE_OTHER_COLOR : PIE_COLORS[index % PIE_COLORS.length];
+      var title = item.name + '：' + item.count + ' 位（' + percents[index] + '%）';
+      var fillColor = color;
+      var path;
+      if (frac >= 0.9999) {
+        path = 'M ' + cx + ' ' + (cy - rOuter) + ' A ' + rOuter + ' ' + rOuter + ' 0 1 1 ' + (cx - 0.01) + ' ' + (cy - rOuter) +
+          ' Z M ' + cx + ' ' + (cy - rInner) + ' A ' + rInner + ' ' + rInner + ' 0 1 0 ' + (cx - 0.01) + ' ' + (cy - rInner) + ' Z';
+        slices.push('<path class="pie-slice' + (item.other ? ' pie-slice--other' : '') + '" d="' + path + '" fill="' + fillColor + '" fill-rule="evenodd" data-country="' + esc(item.name) + '"><title>' + esc(title) + '</title></path>');
+      } else {
+        path = donutSlicePath(cx, cy, rOuter, rInner, angle, end);
+        slices.push('<path class="pie-slice' + (item.other ? ' pie-slice--other' : '') + '" d="' + path + '" fill="' + fillColor + '" data-country="' + esc(item.name) + '"><title>' + esc(title) + '</title></path>');
+      }
+      angle = end;
+    });
+
+    var legend = '<ul class="pie-legend" data-testid="pie-legend">' + groups.map(function (item, index) {
+      var color = item.other ? PIE_OTHER_COLOR : PIE_COLORS[index % PIE_COLORS.length];
+      return '<li class="legend-item" data-country="' + esc(item.name) + '">' +
+        '<span class="legend-dot" style="background:' + color + '" aria-hidden="true"></span>' +
+        '<span class="legend-name">' + (item.flag ? '<span class="flag" aria-hidden="true">' + item.flag + '</span> ' : '') + esc(item.name) + '</span>' +
+        '<span class="legend-value">' + item.count + ' 位</span>' +
+        '<span class="legend-pct">' + percents[index] + '%</span>' +
+        '</li>';
+    }).join('') + '</ul>';
+
+    return '<div class="pie-chart" data-testid="country-pie">' +
+      '<div class="pie-figure">' +
+        '<svg class="pie-svg" viewBox="0 0 200 200" role="img" aria-label="客户国家分布扇形图">' +
+          '<circle class="pie-track" cx="100" cy="100" r="67" fill="none" stroke="#eef1f5" stroke-width="30"></circle>' +
+          slices.join('') +
+        '</svg>' +
+        '<div class="pie-center">' +
+          '<strong class="pie-total">' + esc(String(total)) + '</strong>' +
+          '<span class="pie-total-label">位客户</span>' +
+        '</div>' +
+      '</div>' +
+      legend +
+      '</div>';
+  }
+
   function renderDashboard() {
     var stats = Store.stats();
     var monthPrefix = schema.todayISO().slice(0, 7);
@@ -499,9 +747,7 @@
       return rec.firstInquiryAt.slice(0, 7) === monthPrefix;
     }).length;
 
-    var countryItems = stats.byCountry.slice(0, 6).map(function (item) {
-      return { name: item.name, count: item.count, flag: schema.countryFlag(item.name) };
-    });
+    var countryGroups = pieGroups(stats.byCountry, 6);
     var statusItems = stats.byStatus.map(function (item) {
       return { name: item.status, count: item.count, tone: item.tone };
     });
@@ -550,9 +796,9 @@
       '</div>' +
 
       '<div class="page-grid page-grid--2">' +
-        '<section class="card">' +
-          '<div class="card-head"><div><h3 class="card-title">客户国家分布</h3><p class="card-sub">按客户数量排序，最多显示 6 个</p></div><div class="card-actions">' + icon('globe', 18) + '</div></div>' +
-          '<div class="card-body">' + barList(countryItems) + '</div>' +
+        '<section class="card card--pie">' +
+          '<div class="card-head"><div><h3 class="card-title">客户国家分布</h3><p class="card-sub">扇形图 · 前 6 个国家，其余聚合为「其他」</p></div><div class="card-actions">' + icon('globe', 18) + '</div></div>' +
+          '<div class="card-body">' + pieChart(countryGroups, stats.total) + '</div>' +
         '</section>' +
         '<section class="card">' +
           '<div class="card-head"><div><h3 class="card-title">跟进状态分布</h3><p class="card-sub">平均距上次跟进 ' + (stats.avgDaysSince === null ? '—' : stats.avgDaysSince + ' 天') + '</p></div><div class="card-actions">' + icon('chart', 18) + '</div></div>' +
@@ -594,9 +840,13 @@
         '<td data-col="firstInquiryAt" class="cell-num">' + esc(rec.firstInquiryAt) + '</td>' +
         '<td data-col="age">' + ageCell(rec) + '</td>' +
         '<td data-col="customerName" class="cell-strong">' + esc(rec.customerName || '未命名') + '</td>' +
-        '<td data-col="product" class="cell-muted" title="' + esc(rec.product) + '">' + esc(rec.product || '—') + '</td>' +
+        '<td data-col="product" class="cell-product" title="' + esc(rec.product) + (rec.productModel ? ' · ' + esc(rec.productModel) : '') + '">' +
+          '<span class="cell-strong-inline">' + esc(rec.product || '—') + '</span>' +
+          (rec.productModel ? '<span class="cell-sub">' + esc(rec.productModel) + '</span>' : '') +
+        '</td>' +
         '<td data-col="country" class="cell-country">' + flagText(rec.country) + esc(rec.country || '—') + '</td>' +
         '<td data-col="companyName" title="' + esc(rec.companyName) + '">' + esc(rec.companyName || '—') + '</td>' +
+        '<td data-col="mainBusiness" class="cell-muted" title="' + esc(rec.mainBusiness) + '">' + esc(rec.mainBusiness || '—') + '</td>' +
         '<td data-col="foundedAt" class="cell-num">' + esc(rec.foundedAt || '—') + '</td>' +
         '<td data-col="teamSize">' + esc(rec.teamSize || '—') + '</td>' +
         '<td data-col="annualRevenue">' + esc(rec.annualRevenue || '—') + '</td>' +
@@ -610,9 +860,11 @@
         '</div></td>' +
       '</tr>' +
       '<tr class="row-detail" id="' + detailId + '" data-detail="' + esc(rec.id) + '"' + (state.expanded[rec.id] ? '' : ' hidden') + '>' +
-        '<td colspan="14">' +
+        '<td colspan="15">' +
           '<div class="row-detail-inner">' +
             '<div class="row-detail-meta">' +
+              '<span><i>产品型号</i>' + esc(rec.productModel || '—') + '</span>' +
+              '<span><i>主营业务</i>' + esc(rec.mainBusiness || '—') + '</span>' +
               '<span><i>成立时间</i>' + esc(rec.foundedAt || '—') + '</span>' +
               '<span><i>团队规模</i>' + esc(rec.teamSize || '—') + '</span>' +
               '<span><i>年营收</i>' + esc(rec.annualRevenue || '—') + '</span>' +
@@ -679,9 +931,10 @@
           '<th data-col="firstInquiryAt" scope="col">' + sortButton('firstInquiryAt', '首次询盘时间') + '</th>' +
           '<th data-col="age" scope="col">' + sortButton('daysSince', '距上次跟进') + '</th>' +
           '<th data-col="customerName" scope="col">' + sortButton('customerName', '客户名称') + '</th>' +
-          '<th data-col="product" scope="col">咨询产品</th>' +
+          '<th data-col="product" scope="col">咨询产品 / 型号</th>' +
           '<th data-col="country" scope="col">国家</th>' +
           '<th data-col="companyName" scope="col">公司名</th>' +
+          '<th data-col="mainBusiness" scope="col">主营业务</th>' +
           '<th data-col="foundedAt" scope="col">成立时间</th>' +
           '<th data-col="teamSize" scope="col">团队规模</th>' +
           '<th data-col="annualRevenue" scope="col">年营收</th>' +
@@ -710,7 +963,7 @@
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">客户台账</h2>' +
-          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 11 个核心字段 + 最近三次跟进</p>' +
+          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 13 个核心字段 + 最近三次跟进</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-recognize" data-testid="btn-recognize">' + icon('sparkles', 16) + ' 智能识别</button>' +
@@ -848,7 +1101,7 @@
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">智能识别 · 一段话自动填表</h2>' +
-          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出 11 个字段和最近三次跟进。</p>' +
+          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出产品名称/型号、主营业务等 13 个字段和最近三次跟进。</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-customers">' + icon('users', 16) + ' 返回客户台账</button>' +
@@ -965,6 +1218,37 @@
   /* 9. 设置 / 帮助                                                       */
   /* ================================================================== */
 
+  function productLibraryHtml() {
+    var products = Store.listProducts();
+    var usage = Store.productUsage();
+    var rows = products.map(function (product) {
+      var used = usage[product.name + '|' + (product.model || '')] || 0;
+      return '<div class="product-row" data-testid="product-row" data-id="' + esc(product.id) + '">' +
+        '<span class="product-name">' + esc(product.name) + '</span>' +
+        '<span class="product-model">' + esc(product.model || '—') + '</span>' +
+        '<span class="product-usage">' + (used ? used + ' 位客户使用' : '暂未使用') + '</span>' +
+        '<button type="button" class="icon-btn icon-btn--sm icon-btn--danger product-remove" data-action="delete-product" data-id="' + esc(product.id) + '" data-testid="btn-delete-product" aria-label="删除产品" title="删除产品">' + icon('trash', 14) + '</button>' +
+        '</div>';
+    }).join('');
+
+    return '<section class="card product-library" data-testid="product-library">' +
+      '<div class="card-head">' +
+        '<div><h3 class="card-title">产品库</h3><p class="card-sub">预录入咨询产品名称与型号，新建客户时下拉选择 · 共 ' + products.length + ' 个产品</p></div>' +
+        '<div class="card-actions"><button type="button" class="btn btn--ghost btn--sm" data-action="seed-products" title="恢复 12 条预置产品">恢复预置产品</button></div>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<form id="product-form" data-testid="form-product" class="product-form" autocomplete="off">' +
+          '<div class="product-form-row">' +
+            '<input type="text" class="input" name="productNewName" placeholder="产品名称，如 不锈钢保温杯" aria-label="新产品名称" maxlength="120">' +
+            '<input type="text" class="input" name="productNewModel" placeholder="型号 / 规格，如 500ml" aria-label="新产品型号" maxlength="80">' +
+            '<button type="submit" class="btn btn--primary btn--sm" data-testid="btn-add-product">' + icon('plus', 14) + ' 加入产品库</button>' +
+          '</div>' +
+        '</form>' +
+        (rows ? '<div class="product-table">' + rows + '</div>' : '<p class="product-empty">产品库为空，先在上方添加一个产品名称与型号。</p>') +
+      '</div>' +
+      '</section>';
+  }
+
   function renderSettings() {
     var settings = Store.settings();
     var stats = Store.stats();
@@ -1003,11 +1287,13 @@
             '<div class="data-actions"><button type="button" class="btn btn--primary btn--sm" data-action="save-settings">' + icon('check', 16) + ' 保存设置</button></div>' +
           '</div>' +
         '</section>' +
+        productLibraryHtml() +
         '<section class="card">' +
           '<div class="card-head"><div><h3 class="card-title">存储信息</h3><p class="card-sub">localStorage · 数据不出电脑</p></div><div class="card-actions">' + icon('file', 18) + '</div></div>' +
           '<div class="card-body">' +
             '<dl class="info-list">' +
               '<div><dt>客户记录</dt><dd>' + stats.total + ' 位（已成交 ' + stats.deal + ' 位）</dd></div>' +
+              '<div><dt>产品库</dt><dd>' + Store.listProducts().length + ' 个产品 / ' + Store.productNames().length + ' 个产品名</dd></div>' +
               '<div><dt>存储位置</dt><dd>浏览器 localStorage · 键名 <code class="mono">' + esc(Store.KEY) + '</code></dd></div>' +
               '<div><dt>可用状态</dt><dd>' + (storageOk ? '<span class="badge badge--ok">可用</span>' : '<span class="badge badge--danger">不可用</span>') + '</dd></div>' +
               '<div><dt>最后保存</dt><dd>' + esc(schema.formatDateTime(lastSaved)) + '</dd></div>' +
@@ -1051,24 +1337,33 @@
           '</ol>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>② 跟进与「距上次跟进」</h3>' +
+          '<h3>② 产品库与咨询产品</h3>' +
+          '<ul class="help-list">' +
+            '<li>设置页「产品库」可<b>预录入产品名称 + 型号</b>（默认已带 12 条），支持新增/删除/恢复预置。</li>' +
+            '<li>新建客户时「咨询产品」是<b>名称 + 型号联动下拉</b>，选完自动填两个字段，表格里型号以小字显示在产品名下方。</li>' +
+            '<li>没有的产品可直接手动输入，点「加入产品库」下次就能下拉选择。</li>' +
+            '<li>仪表盘的「客户国家分布」用<b>扇形图</b>展示，鼠标悬停切片可看国家、客户数与占比。</li>' +
+          '</ul>' +
+        '</section>' +
+        '<section class="help-card">' +
+          '<h3>③ 跟进与「距上次跟进」</h3>' +
           '<ul class="help-list">' +
             '<li>每位客户最多记录 <b>最近三次</b>跟进，最新一条排最前。</li>' +
             '<li>「距上次跟进」= 今天 − 最近一条跟进日期；没有跟进记录时显示「尚未跟进」。</li>' +
             '<li>颜色：<span class="badge badge--ok">7 天内</span> <span class="badge badge--warn">7-13 天</span> <span class="badge badge--danger">≥14 天</span>，阈值可在设置页调整。</li>' +
-            '<li>表格行首箭头展开，可看到三条跟进记录并直接补记。</li>' +
+            '<li>表格行首箭头展开，可看到三条跟进记录与产品型号/主营业务/公司规模，并可直接补记。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>③ 一键导出 Excel</h3>' +
+          '<h3>④ 一键导出 Excel</h3>' +
           '<ul class="help-list">' +
             '<li>客户台账页「一键导出 Excel」：有筛选时导出<b>当前筛选结果</b>，否则导出全部。</li>' +
-            '<li>文件含两个工作表：<b>客户总表</b>（19 列，含最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
+            '<li>文件含两个工作表：<b>客户总表</b>（21 列，含产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
             '<li>表头冻结、自动筛选、列宽与换行都已设置，可直接打印或发给同事。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>④ 数据安全与迁移</h3>' +
+          '<h3>⑤ 数据安全与迁移</h3>' +
           '<ul class="help-list">' +
             '<li>数据只存在本机浏览器，不上传任何服务器；清除浏览器数据会丢失，请定期导出 JSON 备份。</li>' +
             '<li>换电脑：旧电脑导出 JSON → 新电脑「从 JSON 恢复」。</li>' +
@@ -1088,6 +1383,7 @@
           '<ul class="help-list help-list--wide">' +
             '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。</li>' +
             '<li>用「成立于」「团队」「年营收」这类标签词描述公司背景，识别成立时间 / 团队规模 / 年营收最稳。</li>' +
+            '<li>写清「主营/从事/进口/分销」与产品规格（如「500ml」「16 件套」），主营业务与产品型号也会自动识别。</li>' +
             '<li>跟进记录写成「日期 + 做了什么」，例如「11月18日邮件确认样品尺寸」，会被归入最近三次跟进。</li>' +
             '<li>识别不出的字段会在结果里标灰，可手动补填；所有字段都能在保存前修改。</li>' +
             '<li>快捷键：<span class="kbd">/</span> 聚焦搜索，<span class="kbd">N</span> 新建客户，<span class="kbd">Esc</span> 关闭弹窗。</li>' +
@@ -1113,6 +1409,8 @@
     });
     var topbarNew = document.querySelector('.btn-new-customer');
     if (topbarNew) topbarNew.style.display = routeName === 'customers' || routeName === 'dashboard' ? 'none' : '';
+    /* v1.1：客户台账页使用宽版布局（占屏更大） */
+    document.body.classList.toggle('route-customers', routeName === 'customers');
   }
 
   function render() {
@@ -1337,6 +1635,19 @@
         break;
       case 'recognize-fill': applyRecognition('fill'); break;
       case 'recognize-add': applyRecognition('add'); break;
+      case 'add-product-from-form': addProductFromForm(); break;
+      case 'delete-product': {
+        var removed = Store.removeProduct(element.getAttribute('data-id'));
+        core.toast(removed ? '已从产品库删除' : '产品不存在或已删除', removed ? 'ok' : 'error');
+        if (removed && state.route === 'settings') render();
+        break;
+      }
+      case 'seed-products': {
+        var count = Store.seedProducts(true);
+        core.toast('已恢复 ' + count + ' 个预置产品', 'ok');
+        if (state.route === 'settings') render();
+        break;
+      }
       default: break;
     }
   }
@@ -1415,6 +1726,27 @@
       if (event.target && event.target.id === 'customer-form') {
         event.preventDefault();
         saveCustomerForm();
+        return;
+      }
+      if (event.target && event.target.id === 'product-form') {
+        event.preventDefault();
+        var form = event.target;
+        var nameEl = form.elements.productNewName;
+        var modelEl = form.elements.productNewModel;
+        var name = nameEl ? String(nameEl.value || '').trim() : '';
+        var model = modelEl ? String(modelEl.value || '').trim() : '';
+        if (!name) {
+          core.toast('请填写产品名称', 'error');
+          if (nameEl) { try { nameEl.focus(); } catch (err) { /* ignore */ } }
+          return;
+        }
+        var product = Store.addProduct({ name: name, model: model });
+        core.toast('已加入产品库：' + product.name + (product.model ? ' · ' + product.model : ''), 'ok');
+        if (state.route === 'settings') render();
+        setTimeout(function () {
+          var input = document.querySelector('#product-form [name="productNewName"]');
+          if (input) { try { input.focus(); } catch (err) { /* ignore */ } }
+        }, 30);
       }
     });
 
@@ -1462,6 +1794,10 @@
     core.on(document, 'change', function (event) {
       var target = event.target;
       if (!target) return;
+      if (target.name === 'productName') {
+        syncProductPicker(target);
+        return;
+      }
       var map = { 'filter-country': 'country', 'filter-status': 'status', 'filter-deal': 'deal' };
       var key = map[target.id];
       if (!key) return;
@@ -1521,6 +1857,39 @@
       exportJson: exportJson,
       stats: function () { return Store.stats(); },
       filtered: function () { return filteredDerived(); },
+      /* v1.1 产品库相关 */
+      selectProduct: function (name, model) {
+        var form = document.getElementById('customer-form');
+        if (!form) return false;
+        var nameSelect = form.querySelector('[name="productName"]');
+        if (!nameSelect) return false;
+        var products = Store.listProducts();
+        var names = catalogNames(products);
+        if (names.indexOf(name) === -1) {
+          nameSelect.value = '__custom__';
+          syncProductPicker(nameSelect);
+          var customName = form.querySelector('[name="productCustom"]');
+          var customModel = form.querySelector('[name="productModelCustom"]');
+          if (customName) customName.value = name || '';
+          if (customModel) customModel.value = model || '';
+          return true;
+        }
+        nameSelect.value = name;
+        syncProductPicker(nameSelect);
+        var modelSelect = form.querySelector('[name="productModel"]');
+        if (modelSelect) {
+          if (model && Store.productModels(name).indexOf(model) === -1) {
+            var option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            modelSelect.appendChild(option);
+          }
+          modelSelect.value = model || modelSelect.value;
+        }
+        return true;
+      },
+      addProduct: function (payload) { return Store.addProduct(payload); },
+      products: function () { return Store.listProducts(); },
       toast: core.toast,
       openFollowupModal: openFollowupModal,
       state: state,

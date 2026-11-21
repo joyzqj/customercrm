@@ -1,4 +1,6 @@
-# 客户通 CustomerCRM — 工程契约 v1.0
+# 客户通 CustomerCRM — 工程契约 v1.1
+
+> v1.1 变更（2026-11-22）：新增「主营业务」「产品型号」字段；新增产品库（预录入产品名称+型号，客户表单下拉选择）；仪表盘国家分布改为 SVG 扇形图；客户台账页改为宽版布局（占屏更大）。
 
 > 本文件是团队唯一的接口真源（source of truth）。任何接口变更必须先改本文件，并在任务板留痕。
 
@@ -65,9 +67,11 @@
   id: 'c_lq2x8f3a',                 // 唯一 id，前缀 c_
   firstInquiryAt: '2026-09-12',     // 首次询盘时间 YYYY-MM-DD
   customerName: 'Michael Braun',    // 客户名称（联系人）
-  product: '不锈钢保温杯 500ml',      // 咨询产品
+  product: '不锈钢保温杯',            // 咨询产品名称（可从产品库选择）
+  productModel: '500ml',            // 产品型号 / 规格（与 product 配对）
   country: '德国',                   // 国家（中文名，来自 schema 国家表或自由输入）
   companyName: 'Braun Trading GmbH',// 公司名
+  mainBusiness: '户外用品进口分销',    // 主营业务（客户公司主要进口/经营品类）
   foundedAt: '1998',                // 成立时间（自由文本：1998 / 1998年3月 / 1998-03）
   teamSize: '50-100 人',            // 团队规模（自由文本）
   annualRevenue: '1200 万欧元',      // 年营收（自由文本）
@@ -83,6 +87,16 @@
   updatedAt: '2026-11-18T09:30:00.000Z'
 }
 ```
+
+### 3.1b 产品库 PredefinedProduct（v1.1 新增）
+
+```js
+{ id: 'p_xxx', name: '不锈钢保温杯', model: '500ml', createdAt: '2026-11-22T00:00:00.000Z' }
+```
+
+- 产品库存在 `localStorage['customer-crm.v1'].products`，与客户数据一起备份/恢复。
+- 首次使用写入 `CRM_SCHEMA.DEFAULT_PRODUCTS`（12 条预置产品，名称可重复、型号不同）。
+- 客户表单的「咨询产品」= 产品名称下拉 + 型号下拉（联动），选完后 `product`/`productModel` 两个字段一起写入；不在产品库里的产品可手动输入，并可一键「加入产品库」。
 
 「距上次跟进的时间」不落库，由 `CRM_SCHEMA.derive()` 从 `followups[0].date` 实时计算；无跟进记录时视为「尚未跟进」。
 
@@ -104,13 +118,14 @@ DEAL_STATUS     = ['已成交', '未成交'];
 
 ```js
 window.CRM_SCHEMA = {
-  VERSION: '1.0.0',
+  VERSION: '1.1.0',
   STORAGE_KEY: 'customer-crm.v1',
 
-  FIELDS: [{ key, label, type, required, table, excel, width, hint, options? }],  // 11 个字段，见下
+  FIELDS: [{ key, label, type, required, table, excel, width, hint, options? }],  // 13 个字段，见下
   FIELD_GROUPS: [{ title, hint, keys: [...] }],   // 表单分组
   FOLLOWUP_STATUS, DEAL_STATUS, STATUS_TONE, DEAL_TONE,
   COUNTRIES: [{ name:'德国', iso:'DE', en:'Germany', aliases:['german','deutschland'] }],
+  DEFAULT_PRODUCTS: [{ name, model }],              // 产品库预置数据（12 条）
 
   emptyRecord(todayISO?) -> CustomerRecord,          // 空白记录（含默认值）
   normalize(raw) -> CustomerRecord,                  // 清洗/补全/截断 followups/排序
@@ -120,6 +135,7 @@ window.CRM_SCHEMA = {
   },
   fieldByKey(key) -> field | null,
   fieldLabel(key) -> string,
+  validate(record) -> { ok, errors },
 
   todayISO() -> 'YYYY-MM-DD',
   addDays(iso, n) -> 'YYYY-MM-DD',
@@ -135,15 +151,17 @@ window.CRM_SCHEMA = {
 };
 ```
 
-11 个字段（**顺序即界面、表单、Excel 列顺序**）：
+13 个字段（**顺序即界面、表单、Excel 列顺序**）：
 
 | key | label | type | 说明 |
 | --- | --- | --- | --- |
 | `firstInquiryAt` | 首次询盘时间 | `date` | 必填，`YYYY-MM-DD` |
 | `customerName` | 客户名称 | `text` | 必填，联系人名 |
-| `product` | 咨询产品 | `text` | 产品/型号/规格 |
+| `product` | 咨询产品 | `text` | 产品名称，表单从产品库下拉选择 |
+| `productModel` | 产品型号 | `text` | 与产品名称配对的型号/规格（表格中并入咨询产品单元格展示） |
 | `country` | 国家 | `select`（可自由输入） | 中文国名 |
 | `companyName` | 公司名 | `text` | 客户公司全称 |
+| `mainBusiness` | 主营业务 | `text` | v1.1 新增：客户公司主营品类/业务 |
 | `foundedAt` | 成立时间 | `text` | 1998 / 1998年3月 |
 | `teamSize` | 团队规模 | `text` | 50-100 人 |
 | `annualRevenue` | 年营收 | `text` | 1200 万欧元 |
@@ -151,13 +169,25 @@ window.CRM_SCHEMA = {
 | `dealStatus` | 是否成交 | `select` | 枚举 |
 | `coreReason` | 核心原因 | `textarea` | 成败关键原因 |
 
+### 4.2 产品库 Store API（v1.1）
+
+```js
+CrmStore.listProducts() -> [{ id, name, model, createdAt }]   // 按名称/型号排序
+CrmStore.productNames() -> ['不锈钢保温杯', ...]                 // 去重后的产品名
+CrmStore.productModels(name) -> ['500ml', '750ml', ...]        // 某产品名下的型号
+CrmStore.addProduct({ name, model }) -> product | null         // name+model 已存在则返回已有项
+CrmStore.removeProduct(id) -> boolean
+CrmStore.seedProducts(force?) -> number                        // 恢复预置 12 条
+CrmStore.productUsage() -> { '名称|型号': 客户数 }               // 设置页展示使用次数
+```
+
 ## 5. `js/parser.js` 契约（parser-dev）
 
 ### 5.1 接口
 
 ```js
 window.CrmParser = {
-  VERSION: '1.0.0',
+  VERSION: '1.1.0',
   recognize(text, opts) -> {
     ok: boolean,
     fields: { [fieldKey]: string },          // 只放识别到的字段（非空），值已清洗
@@ -165,7 +195,7 @@ window.CrmParser = {
     evidence: { [fieldKey]: { value, snippet } },       // snippet ≤ 60 字，用于界面对照
     warnings: [{ code, message }],
     filled: number,                          // fields 非空数量（不含 followups）
-    missing: string[],                       // 11 个字段里没识别到的 key
+    missing: string[],                       // 13 个字段里没识别到的 key
     raw?: { textLength, countryHit, matchedRules: string[] }   // 调试信息，可省略字段内容
   },
   // 供界面「示例」按钮使用，至少 3 段，中英混合
@@ -184,6 +214,8 @@ window.CrmParser = {
 | `firstInquiryAt` | 「询盘时间/首次询盘/收到询盘/来函/第一次联系/询价日期」+ 日期；`inquiry on/inquiry dated/reached out on/contacted us on/first email on`；无标签时取文中最靠前的日期 |
 | `customerName` | 「客户/联系人/姓名/负责人」+ 名字；`contact person/Mr./Ms./Mrs./Dr./from ...`、英文 `First Last` 人名模式；中文姓名 2-4 字 |
 | `product` | 「咨询产品/产品/询价产品/需要/采购/感兴趣的是」+ 名词短语；`inquiry about/regarding/interested in/product/asked for/quotation for`；⚠️ 不要吞掉时间/公司描述 |
+| `productModel` | v1.1 新增：「500ml / 16 件套 / 1.2L / 750ml / 12 pcs / 3-piece set」等紧跟产品名的规格型号；无则**不输出** |
+| `mainBusiness` | v1.1 新增：「主营/主要从事/业务范围/经营/做…进口/批发/分销/零售」；`specialized in/mainly deals in/distributor of/importer of`；输出如 `户外用品进口分销`，≤ 30 字 |
 | `country` | schema 国家表匹配（中文名、英文名、形容词如 German/Italian、`(DE)` 等）；`from Germany/based in Vietnam/客户来自...` |
 | `companyName` | `XX有限公司/XX有限责任公司/XX集团/XX GmbH/XX Co., Ltd/XX LLC/XX Inc/XX Ltd/XX Trading/XX Industrial` 等后缀；「公司名/公司是/他们公司」+ 名称；`from/at + Company` |
 | `foundedAt` | 「成立于 1998 年/成立时间 2010/创立于/有 20 年历史」；`founded in 1998/established in 2010/since 1994`；输出年份或 `YYYY-MM` |
@@ -211,7 +243,7 @@ window.CrmParser = {
 2026年9月12日收到德国客户 Michael Braun 的询盘。他所在的 Braun Trading GmbH 成立于1998年，主营户外用品，团队规模约50-100人，年营收约1200万欧元。客户咨询的是我们2026款不锈钢保温杯 500ml，要求加印LOGO。目前已报价，客户反馈价格略高于目标价8%，仍在等终端客户确认。11月10日电话沟通确认2000pcs试单意向，11月18日邮件确认样品尺寸。
 ```
 
-断言：`firstInquiryAt=2026-09-12`、`customerName≈Michael Braun`、`companyName≈Braun Trading GmbH`、`country=德国`、`foundedAt≈1998`、`teamSize≈50-100人`、`annualRevenue≈1200万欧元`、`product` 含 `保温杯`、`followupStatus=已报价`、`dealStatus=未成交`、`coreReason` 含 `价格`、`followups.length>=2` 且首条日期 `2026-11-18`。
+断言：`firstInquiryAt=2026-09-12`、`customerName≈Michael Braun`、`companyName≈Braun Trading GmbH`、`country=德国`、`foundedAt≈1998`、`teamSize≈50-100人`、`annualRevenue≈1200万欧元`、`product` 含 `保温杯`、`productModel` 含 `500ml`、`mainBusiness` 含 `户外用品`、`followupStatus=已报价`、`dealStatus=未成交`、`coreReason` 含 `价格`、`followups.length>=2` 且首条日期 `2026-11-18`。
 
 **样例 B（英文）**
 
@@ -227,7 +259,7 @@ Michael Braun from Braun Trading GmbH (Germany) reached out on Sep 12, 2026 rega
 广交会名片：Mr. Ahmed Hassan, Cairo, Egypt。公司 El Nile Import & Export Co., Ltd，做家居用品进口，年采购额约 300 万美元，团队 15 人，2011 年成立。对我们的陶瓷餐具套装感兴趣，已发样册，等回复。
 ```
 
-断言：`country=埃及`、`customerName` 含 `Ahmed`、`companyName` 含 `El Nile`、`foundedAt=2011`、`teamSize` 含 `15`、`annualRevenue` 含 `300`、`product` 含 `陶瓷餐具`、`followupStatus` ∈ {已回复, 寄样中}。
+断言：`country=埃及`、`customerName` 含 `Ahmed`、`companyName` 含 `El Nile`、`foundedAt=2011`、`teamSize` 含 `15`、`annualRevenue` 含 `300`、`product` 含 `陶瓷餐具`、`mainBusiness` 含 `家居用品`、`followupStatus` ∈ {已回复, 寄样中}。
 
 另需覆盖：空文本、仅公司无联系人、全角标点、`2026/9/12` 与 `12 Sep 2026` 日期、`not closed yet`、超长文本不超时。
 
@@ -252,11 +284,11 @@ window.CrmXlsx = {
 };
 ```
 
-`exportCustomers` 的列（顺序固定）：
+`exportCustomers` 的列（顺序固定，v1.1 共 **21 列**）：
 
-**Sheet 1 `客户总表`**：序号 | 首次询盘时间 | 客户名称 | 咨询产品 | 国家 | 公司名 | 成立时间 | 团队规模 | 年营收 | 跟进状态 | 是否成交 | 核心原因 | 距上次跟进(天) | 最近跟进①日期 | 最近跟进①内容 | 最近跟进②日期 | 最近跟进②内容 | 最近跟进③日期 | 最近跟进③内容
+**Sheet 1 `客户总表`**：序号 | 首次询盘时间 | 客户名称 | 咨询产品 | 产品型号 | 国家 | 公司名 | 主营业务 | 成立时间 | 团队规模 | 年营收 | 跟进状态 | 是否成交 | 核心原因 | 距上次跟进(天) | 最近跟进①日期 | 最近跟进①内容 | 最近跟进②日期 | 最近跟进②内容 | 最近跟进③日期 | 最近跟进③内容
 
-**Sheet 2 `跟进明细`**：序号 | 首次询盘时间 | 客户名称 | 公司名 | 国家 | 跟进日期 | 距今天数 | 跟进内容 | 跟进状态 | 是否成交（每个客户每条跟进一行，倒序）。
+**Sheet 2 `跟进明细`**：序号 | 首次询盘时间 | 客户名称 | 公司名 | 主营业务 | 国家 | 跟进日期 | 距今天数 | 跟进内容 | 跟进状态 | 是否成交（每个客户每条跟进一行，倒序）。
 
 `opts`：`{ filename?: string, today: 'YYYY-MM-DD', title?: string }`。默认文件名 `客户跟进台账_YYYYMMDD_HHmm.xlsx`（本地时间）。
 
@@ -266,13 +298,13 @@ window.CrmXlsx = {
 - XML 转义 `& < > " '`；剔除 XML 非法控制字符；空单元格不写；数字单元格不写 `t`；日期一律**文本** `YYYY-MM-DD`（避免 Excel 日期序列/本地化坑）。
 - 表头：加粗白字、深蓝底 `#0B2239`、居中；表头行高 24；首行冻结 + 自动筛选（`autoFilter` 覆盖整个数据区）；列宽按 `columns[].width`，`核心原因`/跟进内容 `wrapText`。
 - 中文文件名与 UTF-8 内容必须正确；不得出现乱码或「文件已损坏」。
-- 大数据量：500 行 × 19 列 < 300ms。
+- 大数据量：500 行 × 21 列 < 300ms。
 - 浏览器与 Node 双端可用：Node 下 `module.exports = api`（用 `TextEncoder` / `Uint8Array`，不要用 `document`/`Blob` 在 Node 分支里）。
 
 ### 6.3 验收（`tests/test-xlsx.mjs`）
 
 1. 生成 8 条示例客户的数据 → 写出 `%TEMP%/crm-export-test.xlsx`。
-2. 用 Python openpyxl 校验（`load_worksheet` 读取）：工作表名、表头 19 列文本、行数、中文值、冻结窗格、列宽、`autoFilter` 引用、`zipfile.testzip()` 返回 `None`。
+2. 用 Python openpyxl 校验（`load_worksheet` 读取）：工作表名、表头 21 列文本、行数、中文值、新列（产品型号/主营业务）、冻结窗格、列宽、`autoFilter` 引用、`zipfile.testzip()` 返回 `None`。
 3. 断言 `bytes.length > 3000` 且以 `PK\x03\x04` 开头。
 4. 至少 3 个单测：空记录、超长中文、特殊字符 `<&"'>` 与换行。
 
@@ -293,11 +325,13 @@ window.CrmXlsx = {
 
 **页面**：`.page .page-head .page-head-main .page-title .page-sub .page-head-actions .page-grid .page-grid--2 .section-title .hint`
 
-**仪表盘**：`.stats-grid .stat-card .stat-card--ok .stat-card--warn .stat-card--danger .stat-icon .stat-body .stat-label .stat-value .stat-hint .card .card-head .card-title .card-sub .card-actions .card-body .bar-list .bar-row .bar-meta .bar-track .bar-fill .bar-fill--ok .bar-fill--warn .bar-fill--danger .timeline .timeline-item .timeline-dot .timeline-body .timeline-date .timeline-text`
+**仪表盘（v1.1 国家分布改扇形图）**：`.stats-grid .stat-card .stat-card--ok .stat-card--warn .stat-card--danger .stat-icon .stat-body .stat-label .stat-value .stat-hint .card .card-head .card-title .card-sub .card-actions .card-body .pie-chart .pie-figure .pie-svg .pie-slice .pie-center .pie-total .pie-total-label .pie-legend .legend-item .legend-dot .legend-name .legend-value .legend-pct .bar-list .bar-row .bar-meta .bar-track .bar-fill .bar-fill--ok .bar-fill--warn .bar-fill--danger .timeline .timeline-item .timeline-dot .timeline-body .timeline-date .timeline-text`
 
-**客户台账**：`.toolbar .toolbar-left .toolbar-right .search-box .search-input .filter-select .select--sm .count-pill .table-wrap .data-table .data-table--customers .row .row--expanded .row-detail .row-toggle .col-expand .cell-strong .cell-muted .cell-num .cell-reason .cell-country .flag .badge .badge--ok .badge--warn .badge--danger .badge--info .badge--brand .badge--neutral .age .age--ok .age--warn .age--danger .age--none .followup-strip .followup-chip .followup-date .followup-note .row-actions .icon-btn--sm .icon-btn--danger .sort-btn .is-active .empty .empty-art .empty-title .empty-text .empty-actions .table-footer .table-count .data-table th[data-col] .data-table td[data-col]`
+**客户台账**：`.toolbar .toolbar-left .toolbar-right .search-box .search-input .filter-select .select--sm .count-pill .table-wrap .data-table .data-table--customers .row .row--expanded .row-detail .row-toggle .col-expand .cell-strong .cell-muted .cell-sub .cell-num .cell-product .cell-reason .cell-country .flag .badge .badge--ok .badge--warn .badge--danger .badge--info .badge--brand .badge--neutral .age .age--ok .age--warn .age--danger .age--none .followup-strip .followup-chip .followup-date .followup-note .row-actions .icon-btn--sm .icon-btn--danger .sort-btn .is-active .empty .empty-art .empty-title .empty-text .empty-actions .table-footer .table-count .data-table th[data-col] .data-table td[data-col]`
 
-**表单**：`.form-grid .field .field--full .field-label .req .field-hint .field-error .input .select .textarea .textarea--lg .form-section .form-section-title .followup-editor .followup-row .followup-empty .chip-row .chip .chip.is-active .input-group`
+**表单（含 v1.1 产品选择器）**：`.form-grid .field .field--full .field--split .field-label .req .field-hint .field-error .input .select .textarea .textarea--lg .form-section .form-section-title .followup-editor .followup-row .followup-empty .chip-row .chip .chip.is-active .input-group .product-picker .product-picker-name .product-picker-model .product-custom .product-add-btn`
+
+**产品库（设置页 v1.1）**：`.product-library .product-form .product-form-row .product-table .product-row .product-name .product-model .product-usage .product-empty`
 
 **智能识别**：`.recog-layout .recog-panel .recog-panel--source .recog-panel--result .panel-head .panel-title .panel-hint .recog-summary .recog-count .recog-list .recog-item .recog-item--filled .recog-item--missing .recog-key .recog-value .recog-evidence .recog-actions .sample-pill`
 
@@ -309,10 +343,10 @@ window.CrmXlsx = {
 
 表格列优先级（v1.0 定稿，`app.js` 输出 14 列，`.data-table--customers` 按属性选择器显隐）：
 
-- `>= 1600px`：显示全部列（13 个数据列 + 展开列 + 操作列），`.row-detail-meta` 隐藏。
-- `1280 ~ 1599px`（含 1440 笔记本）：隐藏 `[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`（这三项在行展开的 `.row-detail-meta` 中展示，`.data-table--customers { min-width: 1182px }`）；首屏可见「首次询盘时间 → 距上次跟进 → 客户名称 → 咨询产品 → 国家 → 公司名 → 跟进状态 → 是否成交」，核心原因横向滚动，操作列右侧固定。
+- `>= 1600px`：显示全部列（14 个数据列 + 展开列 + 操作列），`.row-detail-meta` 隐藏。
+- `1280 ~ 1599px`（含 1440 笔记本）：**v1.1 宽版台账**——`body.route-customers` 下 `.view-inner{max-width:1720px}`、内边距收窄。隐藏 `[data-col="foundedAt"]`、`[data-col="teamSize"]`、`[data-col="annualRevenue"]`（这三项在行展开的 `.row-detail-meta` 中展示），`.data-table--customers { min-width: 1328px }`；首屏可见「首次询盘时间 → 距上次跟进 → 客户名称 → 咨询产品（含型号）→ 国家 → 公司名 → 主营业务 → 跟进状态 → 是否成交」，核心原因横向滚动，操作列右侧固定。
 - `< 1024px`：侧栏默认隐藏（`transform: translateX(-100%)`，`.is-open` 滑入 + 背景遮罩）。
-- `< 768px`：再隐藏 `[data-col="product"]`、`[data-col="companyName"]`、`[data-col="coreReason"]`；`.toolbar` 换行；表格横向滚动，禁止整页横向溢出（`body` 不能出现 x 轴滚动条）。
+- `< 768px`：再隐藏 `[data-col="product"]`、`[data-col="mainBusiness"]`、`[data-col="companyName"]`、`[data-col="coreReason"]`；`.toolbar` 换行；表格横向滚动，禁止整页横向溢出（`body` 不能出现 x 轴滚动条）。
 - 右侧固定列（`[data-col="age"]` 不固定、`.col-actions` 固定）背景必须不透明，行 hover / 展开态的固定列背景同步。
 - `@media print`：隐藏侧栏/顶栏/工具栏/操作列/Toast/Modal，表格全宽并**恢复被响应式隐藏的列**（`display: table-cell !important`）、表头重复（`thead { display: table-header-group }`），打印字号 11pt、去阴影。
 - 所有断点都要保证：`document.documentElement.scrollWidth <= innerWidth + 1`（qa-dev 会断言）。
@@ -326,7 +360,7 @@ window.CrmXlsx = {
 
 ```js
 window.CustomerCRM = {
-  version: '1.0.0',
+  version: '1.1.0',
   app: {
     navigate(hash),                  // '#/customers' | 'customers' | '#/customer/xxx' 均可
     getRoute() -> 'dashboard'|'customers'|'recognize'|'settings'|'help',
@@ -340,6 +374,8 @@ window.CustomerCRM = {
     applyRecognition(result, mode),  // 'fill'（打开预填表单）| 'add'（直接新增一行）
     exportExcel(),                   // 触发下载，返回 { filename, bytes: number }
     stats(),                         // { total, deal, open, overdue, avgDaysSince }
+    selectProduct(name, model),      // v1.1：在客户表单里选择产品库中的产品（联动型号）
+    addProduct({ name, model }),     // v1.1：新增产品到产品库（设置页/表单内快捷添加）
     toast(message, type)
   },
   store,                             // window.CrmStore
@@ -352,6 +388,7 @@ window.CustomerCRM = {
 **约定**：
 
 - 表单控件 `name` 属性 = 字段 key（qa 用 `page.fill('customerName', 'X')` 直接填充）；表单 `<form id="customer-form" data-testid="form-customer">`。
+- v1.1 产品选择器：`select[name="productName"]`（data-testid=`product-name-select`）、`select[name="productModel"]`（data-testid=`product-model-select`）、自定义产品输入 `input[name="productCustom"]`（data-testid=`product-custom-input`）；产品库管理表单 `#product-form`（data-testid=`form-product`）、`input[name="productNewName"]`、`input[name="productNewModel"]`、`data-testid="btn-add-product"`、`data-testid="product-row"`、`data-testid="btn-delete-product"`。
 - 稳定 `data-testid`：
   - `new-customer`、`btn-export-excel`、`btn-recognize`、`btn-seed-demo`、`btn-clear-all`
   - `customer-row`（每个 `<tr.row>`）、`row-toggle`、`btn-edit-customer`、`btn-delete-customer`、`btn-add-followup`
@@ -359,6 +396,8 @@ window.CustomerCRM = {
   - `customer-search`、`filter-country`、`filter-status`、`filter-deal`、`filter-reset`
   - `recognize-input`、`btn-run-recognize`、`recognize-result`、`btn-fill-customer`、`btn-add-recognized`
   - `stat-total`、`stat-deal`、`stat-open`、`stat-overdue`
+  - `country-pie`（仪表盘扇形图容器）、`pie-legend`（图例容器）
+  - `product-name-select`、`product-model-select`、`product-custom-input`、`form-product`、`btn-add-product`、`product-row`、`btn-delete-product`
   - `toast-stack`、`modal-root`
 - 路由 `hashchange` 驱动；刷新后路由保持。
 - 所有写操作后 `#save-state` 显示「已保存」（`data-state="saved"`）。
@@ -369,14 +408,15 @@ window.CustomerCRM = {
 - 单元测试：`node tests/test-schema.mjs`（Lead）、`node tests/test-parser.mjs`（parser-dev）、`node tests/test-xlsx.mjs`（export-dev），全部必须 PASS 且退出码 0。
 - E2E：`node tests/e2e.mjs`（qa-dev）用 `tests/cdp.mjs` 启动本地静态服务 + headless Chrome，覆盖：
   1. 首屏加载无 console error / pageerror；
-  2. 仪表盘 4 个统计卡数值 = store 计算值；
-  3. 新建客户（表单校验：名称/日期必填）→ 表格出现 → 刷新仍在；
+  2. 仪表盘 4 个统计卡数值 = store 计算值；**v1.1：国家分布为 SVG 扇形图**（`[data-testid="country-pie"]` 内 `.pie-slice` 数量 = 国家数（≤6 + 其他）、图例项数一致、百分比合计 ≈100%、中心数字 = 客户总数）；
+  3. 新建客户（表单校验：名称/日期必填）→ 表格出现 → 刷新仍在；**v1.1 新增字段「主营业务」「产品型号」保存并回显**；
   4. 编辑、删除、添加跟进（最多 3 条、最新在前、距上次跟进数字正确）；
-  5. 搜索/国家/状态/成交筛选 + 排序；
-  6. 智能识别：粘贴 `CrmParser.SAMPLE_TEXTS[0].text` → 结果面板 ≥ 8 项 → 填入表单 → 保存 → 表格字段正确；
-  7. 一键导出：拦截下载，文件存在且 `PK` 头、openpyxl 可读、含两个工作表、行数正确；
-  8. 响应式：1440/1024/768/390 四档无横向溢出、控制台无错；
-  9. 截图：`screenshots/dashboard.png` 等 6 张。
+  5. **v1.1 产品库**：新建客户时从下拉选择「产品名称 + 型号」→ 保存后表格显示名称与型号；设置页新增/删除产品后下拉选项同步；
+  6. 搜索/国家/状态/成交筛选 + 排序；主营业务与产品型号参与搜索；
+  7. 智能识别：粘贴 `CrmParser.SAMPLE_TEXTS[0].text` → 结果面板 ≥ 8 项 → 填入表单 → 保存 → 表格字段正确；
+  8. 一键导出：拦截下载，文件存在且 `PK` 头、openpyxl 可读、含两个工作表、**21 列表头**、行数正确、产品型号/主营业务列有值；
+  9. 响应式：1440/1024/768/390 四档无横向溢出、控制台无错；**v1.1 宽版台账**：`body.route-customers` 下内容宽度明显大于其他页（≥1140px @1440）；
+  10. 截图：`screenshots/dashboard.png` 等 8 张。
 - 验收报告：`tests/QA_REPORT.md`（用例表 + 结果 + 已知问题 + 截图索引）。
 
 ## 10. 协作规则

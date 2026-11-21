@@ -8,16 +8,17 @@
  * 数据：每次运行/每组用例开头 localStorage.clear() + reload，自动重建 12 条示例数据，
  *       保证可重复、组间隔离。
  *
- * 覆盖（CONTRACT §8/§9 + task-4）：
- *   A 首屏 / 仪表盘 4 统计卡 / 无 console error / 截图
- *   B 客户台账 12 行 14 列 / 搜索 / 国家·状态·成交筛选 / 组合筛选 / 重置 / 三种排序 / 展开行
- *   C 新建（必填校验、保存、刷新持久化）/ 编辑 / 跟进（第 4 条截断、最新在前、距上次跟进）/ 删除
+ * 覆盖（CONTRACT v1.1 §8/§9 + task-8）：
+ *   A 首屏 / 仪表盘 4 统计卡 / 国家分布扇形图 / 无 console error / 截图
+ *   B 客户台账 12 行 15 列 / 搜索（含产品型号、主营业务）/ 筛选 / 排序 / 展开行
+ *   C 新建（13 字段、产品名称+型号联动、必填校验、持久化）/ 编辑 / 跟进 / 删除
+ *   P 产品库（设置页 12 行、新增/删除/恢复预置）与产品选择器联动
  *   D 键盘快捷键 / 聚焦搜索、N 新建、Esc 关闭弹窗
- *   E 智能识别（11 项、≥6 命中、填入表单、直接新增一行、空文本兜底）
- *   F 一键导出 Excel（真实下载、文件名、PK 头、ZIP 部件、openpyxl 两个工作表 / 19 列 / 行数 / 筛选导出）
- *   G 设置（阈值持久化与仪表盘联动、JSON 备份导出/恢复、清空后空状态、载入示例数据）
- *   H 响应式 1440/1024/768/390 无横向溢出、侧栏抽屉、打印媒体隐藏、移动端截图
- *   I 数据损坏兜底（非法 JSON 刷新不白屏、重建示例数据）
+ *   E 智能识别（13 项、filled≥11、产品型号/主营业务、填入表单、直接新增一行、空文本兜底）
+ *   F 一键导出 Excel（真实下载、文件名、PK 头、ZIP 部件、openpyxl 两个工作表 / 21+11 列 / 新列有值）
+ *   G 设置（阈值持久化与仪表盘联动、JSON 备份导出/恢复含产品库、清空后空状态、载入示例数据）
+ *   H 响应式 1440/1024/768/390 无横向溢出、宽版台账、侧栏抽屉、打印媒体隐藏与恢复、移动端截图
+ *   I 数据损坏兜底（非法 JSON / v1.0 旧 payload 升级）
  *   S 8 张验收截图齐备、PNG 尺寸正确
  */
 import fs from 'node:fs';
@@ -29,7 +30,8 @@ import { fileURLToPath } from 'node:url';
 import { serveStatic, launchChrome, connectToPage, PageSession, sleep } from './cdp.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOTS = path.join(ROOT, 'screenshots');
+/** 调试期可用 E2E_SHOTS_DIR 指向临时目录，避免与 ui-dev 抢 screenshots/ 根目录；最终验收不设置即写正式目录 */
+const SHOTS = process.env.E2E_SHOTS_DIR ? path.resolve(process.env.E2E_SHOTS_DIR) : path.join(ROOT, 'screenshots');
 const TEMP = fs.mkdtempSync(path.join(os.tmpdir(), 'customer-crm-e2e-'));
 const DOWNLOADS = path.join(TEMP, 'downloads');
 fs.mkdirSync(DOWNLOADS, { recursive: true });
@@ -38,11 +40,17 @@ fs.mkdirSync(DOWNLOADS, { recursive: true });
 /* 常量                                                                */
 /* ================================================================== */
 
-/** CONTRACT §6.1：客户总表 19 列（顺序固定） */
+/** CONTRACT v1.1 §6.1：客户总表 21 列（顺序固定） */
 const EXPECTED_TOTAL_HEADERS = [
-  '序号', '首次询盘时间', '客户名称', '咨询产品', '国家', '公司名', '成立时间', '团队规模', '年营收',
-  '跟进状态', '是否成交', '核心原因', '距上次跟进(天)',
+  '序号', '首次询盘时间', '客户名称', '咨询产品', '产品型号', '国家', '公司名', '主营业务',
+  '成立时间', '团队规模', '年营收', '跟进状态', '是否成交', '核心原因', '距上次跟进(天)',
   '最近跟进①日期', '最近跟进①内容', '最近跟进②日期', '最近跟进②内容', '最近跟进③日期', '最近跟进③内容'
+];
+
+/** CONTRACT v1.1 §6.1：跟进明细 11 列（顺序固定） */
+const EXPECTED_DETAIL_HEADERS = [
+  '序号', '首次询盘时间', '客户名称', '公司名', '主营业务', '国家',
+  '跟进日期', '距今天数', '跟进内容', '跟进状态', '是否成交'
 ];
 
 /** README 引用的 8 张验收截图（1440×900 基准 + 390×844 移动端） */
@@ -75,11 +83,17 @@ for name in wb.sheetnames:
         if row is None:
             continue
         names.append("" if len(row) < 3 or row[2] is None else str(row[2]))
+    first_row = []
+    for row in ws.iter_rows(min_row=2, max_row=2, values_only=True):
+        for cell in row:
+            first_row.append("" if cell is None else str(cell))
+        break
     out["sheets"][name] = {
         "max_row": ws.max_row,
         "max_column": ws.max_column,
         "header": header,
         "names": names,
+        "first_row": first_row,
         "freeze": ws.freeze_panes,
         "auto_filter": ws.auto_filter.ref if ws.auto_filter is not None else None,
     }
@@ -272,6 +286,47 @@ async function filteredIds(page) {
 
 async function filteredNames(page) {
   return page.evaluate(`window.CustomerCRM.app.filtered().map(function (record) { return record.customerName; })`);
+}
+
+/** 选择下拉框并触发 change（v1.1 产品名称/型号联动） */
+async function selectOption(page, selector, value) {
+  const result = await page.evaluate(`(() => {
+    const el = document.querySelector(${J(selector)});
+    if (!el) return { ok: false, error: '元素不存在' };
+    const options = Array.from(el.options || []).map(function (option) { return option.value; });
+    if (options.indexOf(${J(value)}) === -1) return { ok: false, error: '选项不存在', options: options };
+    const proto = Object.getPrototypeOf(el);
+    const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (descriptor && descriptor.set) descriptor.set.call(el, ${J(value)});
+    else el.value = ${J(value)};
+    for (const type of ['input', 'change']) el.dispatchEvent(new Event(type, { bubbles: true }));
+    return { ok: true, value: el.value };
+  })()`);
+  assert(result.ok, '下拉选择失败：' + selector, result);
+  return result.value;
+}
+
+/** 读取仪表盘国家分布扇形图状态 */
+async function readPie(page) {
+  return page.evaluate(`(() => {
+    const root = document.querySelector('[data-testid="country-pie"]');
+    if (!root) return null;
+    const slices = Array.from(root.querySelectorAll('.pie-slice'));
+    const legend = Array.from(root.querySelectorAll('.pie-legend .legend-item'));
+    const pctTexts = Array.from(root.querySelectorAll('.legend-pct')).map(function (el) { return el.textContent.trim(); });
+    return {
+      slices: slices.length,
+      sliceCountries: slices.map(function (el) { return el.getAttribute('data-country'); }),
+      slicePaths: slices.map(function (el) { const d = el.getAttribute('d') || ''; return d.length; }),
+      sliceTitles: slices.map(function (el) { const title = el.querySelector('title'); return title ? title.textContent : ''; }),
+      legend: legend.length,
+      legendCountries: legend.map(function (el) { return el.getAttribute('data-country'); }),
+      pctTexts: pctTexts,
+      pctSum: pctTexts.reduce(function (acc, text) { return acc + (parseInt(text, 10) || 0); }, 0),
+      total: (root.querySelector('.pie-total') || {}).textContent || '',
+      svg: !!root.querySelector('.pie-svg')
+    };
+  })()`);
 }
 
 /** 每组用例开头：清空 localStorage + 刷新，等待 12 条示例数据重建 */
@@ -521,19 +576,33 @@ async function groupA(page) {
     assert(errors.length === 0, '首屏存在错误级控制台输出', errors.slice(0, 6));
   });
 
-  await test('A3', '首次访问自动写入 12 条示例数据且 11 个字段完整', async () => {
-    const records = await page.evaluate('window.CustomerCRM.store.list()');
+  await test('A3', '首次访问自动写入 12 条示例数据，13 个字段完整（含产品型号/主营业务）', async () => {
+    const meta = await page.evaluate(`(() => ({
+      version: window.CustomerCRM.version,
+      fields: window.CRM_SCHEMA.FIELDS.length,
+      keys: window.CRM_SCHEMA.FIELD_KEYS.slice(),
+      products: window.CustomerCRM.store.listProducts().length,
+      records: window.CustomerCRM.store.list()
+    }))()`);
+    assertEq(meta.version, '1.1.0', 'CustomerCRM.version');
+    assertEq(meta.fields, 13, 'CRM_SCHEMA.FIELDS 字段数');
+    assertEq(meta.keys.length, 13, 'CRM_SCHEMA.FIELD_KEYS 字段数');
+    assert(meta.keys.indexOf('productModel') !== -1, '缺少 productModel 字段', meta.keys);
+    assert(meta.keys.indexOf('mainBusiness') !== -1, '缺少 mainBusiness 字段', meta.keys);
+    assertEq(meta.products, 12, '首次访问应写入 12 条预置产品');
+    const records = meta.records;
     assertEq(records.length, 12, '示例数据条数');
-    const fieldKeys = await page.evaluate('window.CRM_SCHEMA.FIELD_KEYS');
-    assertEq(fieldKeys.length, 11, 'CRM_SCHEMA.FIELD_KEYS 字段数');
     for (const record of records) {
-      for (const key of fieldKeys) {
+      for (const key of meta.keys) {
         assert(typeof record[key] === 'string', `客户「${record.customerName}」字段 ${key} 不是字符串`, record[key]);
       }
       assert(record.customerName.length > 0, '示例客户缺少客户名称', record.id);
+      assert(record.productModel.length > 0, '示例客户缺少产品型号', record.customerName);
+      assert(record.mainBusiness.length > 0, '示例客户缺少主营业务', record.customerName);
     }
     const names = records.map((record) => record.customerName);
     assert(names.indexOf('Michael Braun') !== -1, '示例数据应包含契约样例客户 Michael Braun', names);
+    assertEq(records.filter((record) => record.customerName === 'Michael Braun')[0].productModel, '500ml', 'Michael Braun 产品型号');
   });
 
   await test('A4', '仪表盘 4 个统计卡数值 = CustomerCRM.app.stats()', async () => {
@@ -557,7 +626,7 @@ async function groupA(page) {
       pageSub: (document.querySelector('.page-sub') || {}).textContent || ''
     }))()`);
     assertEq(layout.statCards, 4, '统计卡数量');
-    assert(layout.barRows >= 4, '国家/状态分布条形图条目过少', layout.barRows);
+    assert(layout.barRows >= 4, '状态分布条形图条目过少', layout.barRows);
     assertEq(layout.timelineItems, 8, '最近跟进动态应展示 8 条');
     assert(layout.pageSub.indexOf('共 12 位客户') !== -1, '页面摘要应显示 12 位客户', layout.pageSub);
     const stats = await page.evaluate('window.CustomerCRM.app.stats()');
@@ -571,16 +640,18 @@ async function groupA(page) {
     assert(String(text).length > 0, '#save-state 文本为空');
   });
 
-  await test('A7', '公共测试接口自检（CONTRACT §8：app / store / schema / parser / xlsx）', async () => {
+  await test('A7', '公共测试接口自检（CONTRACT v1.1 §8：app / store / schema / parser / xlsx / 产品库）', async () => {
     const api = await page.evaluate(`(() => {
       const crm = window.CustomerCRM;
       if (!crm) return { missing: 'window.CustomerCRM' };
-      const methods = ['navigate', 'getRoute', 'refresh', 'newCustomer', 'editCustomer', 'saveCustomerForm', 'deleteCustomer', 'addFollowup', 'recognize', 'applyRecognition', 'exportExcel', 'stats', 'filtered', 'toast', 'openFollowupModal'];
+      const methods = ['navigate', 'getRoute', 'refresh', 'newCustomer', 'editCustomer', 'saveCustomerForm', 'deleteCustomer', 'addFollowup', 'recognize', 'applyRecognition', 'exportExcel', 'stats', 'filtered', 'selectProduct', 'addProduct', 'products', 'toast', 'openFollowupModal'];
       const missingMethods = methods.filter(function (name) { return typeof crm.app[name] !== 'function'; });
-      const storeMethods = ['list', 'get', 'add', 'update', 'remove', 'replaceAll', 'clear', 'seedDemo', 'settings', 'updateSettings', 'stats', 'exportJSON', 'importJSON', 'savedAt'];
+      const storeMethods = ['list', 'get', 'add', 'update', 'remove', 'replaceAll', 'clear', 'seedDemo', 'settings', 'updateSettings', 'stats', 'exportJSON', 'importJSON', 'savedAt', 'listProducts', 'productNames', 'productModels', 'addProduct', 'removeProduct', 'seedProducts', 'productUsage'];
       const missingStore = storeMethods.filter(function (name) { return typeof crm.store[name] !== 'function'; });
       return {
         version: crm.version,
+        schemaVersion: crm.schema.VERSION,
+        parserVersion: crm.parser ? crm.parser.VERSION : null,
         key: crm.store.KEY,
         missingMethods: missingMethods,
         missingStore: missingStore,
@@ -590,7 +661,9 @@ async function groupA(page) {
         hasState: !!crm.app.state
       };
     })()`);
-    assertEq(api.version, '1.0.0', 'CustomerCRM.version');
+    assertEq(api.version, '1.1.0', 'CustomerCRM.version');
+    assertEq(api.schemaVersion, '1.1.0', 'CRM_SCHEMA.VERSION');
+    assertEq(api.parserVersion, '1.1.0', 'CrmParser.VERSION');
     assertEq(api.key, 'customer-crm.v1', 'store.KEY');
     assertEq(api.missingMethods.join(','), '', 'app 缺少契约方法');
     assertEq(api.missingStore.join(','), '', 'store 缺少契约方法');
@@ -608,6 +681,23 @@ async function groupA(page) {
     await takeScreenshot(page, 'dashboard.png');
     assetScreenshot('dashboard.png', 1440, 900);
   });
+
+  await test('A10', '仪表盘国家分布 SVG 扇形图（7 切片 = 7 图例、百分比合计 100、中心数=12）', async () => {
+    await waitSelector(page, '[data-testid="country-pie"]', '国家分布扇形图容器');
+    const pie = await readPie(page);
+    assert(pie, '未渲染 [data-testid="country-pie"]');
+    assert(pie.svg, '扇形图缺少 .pie-svg');
+    assertEq(pie.slices, 7, '切片数量（前 6 国家 + 其他）');
+    assertEq(pie.legend, pie.slices, '图例数量应等于切片数量');
+    assertEq(pie.pctSum, 100, '图例百分比合计');
+    assertEq(String(pie.total).trim(), '12', '扇形图中心客户总数');
+    assertEq(pie.legendCountries.join('|'), pie.sliceCountries.join('|'), '图例国家顺序 = 切片 data-country');
+    for (let i = 0; i < pie.slices; i += 1) {
+      assert(pie.slicePaths[i] > 10, '切片缺少有效 path', { index: i, pathLength: pie.slicePaths[i] });
+      assert(String(pie.sliceTitles[i]).length > 0, '切片缺少 hover <title>', { index: i });
+    }
+    assert(pie.sliceCountries.indexOf('其他 6 个国家') !== -1, '12 个国家应聚合出「其他 6 个国家」切片', pie.sliceCountries);
+  });
 }
 
 /* ================================================================== */
@@ -617,21 +707,29 @@ async function groupA(page) {
 async function groupB(page) {
   setGroup('B', '客户台账：表格 / 搜索 / 筛选 / 排序 / 展开');
 
-  await test('B1', '客户台账 12 行 × 14 列，工具栏与 data-testid 齐全', async () => {
+  await test('B1', '客户台账 12 行 × 15 列，产品型号小字、工具栏与 data-testid 齐全', async () => {
     await resetDemo(page);
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
     const layout = await page.evaluate(`(() => {
       const row = document.querySelector('tr[data-testid="customer-row"]');
       const headers = Array.from(document.querySelectorAll('.data-table--customers thead th')).map(function (th) { return th.textContent.trim(); });
-      return { cells: row ? row.querySelectorAll('td').length : 0, headers: headers };
+      const productCell = document.querySelector('tr[data-testid="customer-row"] td[data-col="product"]');
+      return {
+        cells: row ? row.querySelectorAll('td').length : 0,
+        headers: headers,
+        productHtml: productCell ? productCell.innerHTML : '',
+        bodyClass: document.body.className
+      };
     })()`);
-    assertEq(layout.cells, 14, '数据行 td 数量（展开列 + 11 字段 + 距上次跟进 + 操作列）');
-    assertEq(layout.headers.length, 14, '表头列数');
+    assertEq(layout.cells, 15, '数据行 td 数量（展开列 + 13 字段合并为 12 列 + 距上次跟进 + 操作列）');
+    assertEq(layout.headers.length, 15, '表头列数');
     const headerText = layout.headers.join('|');
-    for (const label of ['首次询盘时间', '客户名称', '咨询产品', '国家', '公司名', '成立时间', '团队规模', '年营收', '跟进状态', '是否成交', '核心原因', '距上次跟进']) {
+    for (const label of ['首次询盘时间', '距上次跟进', '客户名称', '咨询产品 / 型号', '国家', '公司名', '主营业务', '成立时间', '团队规模', '年营收', '跟进状态', '是否成交', '核心原因']) {
       assert(headerText.indexOf(label) !== -1, '表头缺少列：' + label, layout.headers);
     }
+    assert(/route-customers/.test(layout.bodyClass), '客户台账页应带 body.route-customers（宽版布局）', layout.bodyClass);
+    assert(/cell-sub/.test(layout.productHtml), '产品单元格应渲染型号小字 .cell-sub', layout.productHtml.slice(0, 160));
     for (const testid of ['btn-export-excel', 'customer-search', 'filter-country', 'filter-status', 'filter-deal', 'filter-reset', 'btn-edit-customer', 'btn-delete-customer', 'btn-add-followup', 'row-toggle']) {
       assert(await page.exists(`[data-testid="${testid}"]`), '缺少 data-testid：' + testid);
     }
@@ -803,6 +901,15 @@ async function groupB(page) {
     const expectedNotes = record.followups.slice(0, detail.chips.length).map((item) => item.note);
     assertEq(detail.chips.map((chip) => chip.note).join('|'), expectedNotes.join('|'), '跟进内容与 store 一致（最新在前）');
     assert(detail.chips[0].date.indexOf('最近') !== -1, '第一条跟进应标注「最近」', detail.chips[0].date);
+    const meta = await page.evaluate(`(() => {
+      const el = document.querySelector('tr.row-detail[data-detail="${firstId}"] .row-detail-meta');
+      return el ? el.textContent : '';
+    })()`);
+    for (const label of ['产品型号', '主营业务', '成立时间', '团队规模', '年营收', '首次询盘', '最近更新']) {
+      assert(meta.indexOf(label) !== -1, '行展开 meta 应含「' + label + '」', meta);
+    }
+    assert(meta.indexOf(record.productModel) !== -1, '行展开 meta 应含产品型号值', { meta, productModel: record.productModel });
+    assert(meta.indexOf(record.mainBusiness) !== -1, '行展开 meta 应含主营业务值', { meta, mainBusiness: record.mainBusiness });
     scratch.expandedId = firstId;
   });
 
@@ -831,7 +938,45 @@ async function groupB(page) {
     await click(page, `tr[data-id="${firstId}"] [data-testid="row-toggle"]`);
   });
 
-  await assertNoErrors(page, 'B15', '客户台账全流程无 console / page 错误');
+  await test('B16', '搜索主营业务「户外用品」→ 命中 2 行且主营列有值', async () => {
+    const expected = await page.evaluate(`(() => {
+      const keyword = '户外用品';
+      return window.CustomerCRM.store.list().filter(function (record) {
+        const haystack = [record.customerName, record.companyName, record.product, record.productModel, record.mainBusiness, record.country, record.coreReason].join(' ');
+        return haystack.indexOf(keyword) !== -1;
+      }).length;
+    })()`);
+    await page.fill('[data-testid="customer-search"]', '户外用品');
+    await waitRowCount(page, expected);
+    assertEq(expected, 2, '示例数据中主营业务含「户外用品」的客户数');
+    const ids = await readRowIds(page);
+    const filtered = await filteredIds(page);
+    assertEq(ids.join(','), filtered.join(','), 'DOM 顺序 = app.filtered()');
+    const businesses = await readCol(page, 'mainBusiness');
+    assert(businesses.length === 2 && businesses.every((text) => text.indexOf('户外用品') !== -1), '命中行主营业务列应含关键词', businesses);
+    await click(page, '[data-testid="filter-reset"]');
+    await waitRowCount(page, 12);
+  });
+
+  await test('B17', '搜索产品型号「500ml」→ 命中 2 行且产品单元格含型号小字', async () => {
+    const expected = await page.evaluate(`(() => {
+      const keyword = '500ml';
+      return window.CustomerCRM.store.list().filter(function (record) {
+        return (record.product + ' ' + record.productModel + ' ' + record.mainBusiness).toLowerCase().indexOf(keyword) !== -1;
+      }).length;
+    })()`);
+    await page.fill('[data-testid="customer-search"]', '500ml');
+    await waitRowCount(page, expected);
+    assertEq(expected, 2, '示例数据中型号为 500ml 的客户数');
+    const cells = await page.evaluate(`Array.from(document.querySelectorAll('tr[data-testid="customer-row"] td[data-col="product"]')).map(function (td) { return td.textContent; })`);
+    assert(cells.length === 2 && cells.every((text) => text.indexOf('500ml') !== -1), '命中行产品单元格应含 500ml', cells);
+    const subs = await page.evaluate(`Array.from(document.querySelectorAll('tr[data-testid="customer-row"] .cell-sub')).map(function (el) { return el.textContent; })`);
+    assert(subs.some((text) => text.indexOf('500ml') !== -1), '产品型号应渲染在 .cell-sub 小字中', subs);
+    await click(page, '[data-testid="filter-reset"]');
+    await waitRowCount(page, 12);
+  });
+
+  await assertNoErrors(page, 'B18', '客户台账全流程无 console / page 错误');
 }
 
 /* ================================================================== */
@@ -844,7 +989,7 @@ async function groupC(page) {
   const newValues = {
     firstInquiryAt: '',
     customerName: 'E2E 测试客户',
-    product: '测试保温杯 600ml',
+    mainBusiness: '测试主营业务：户外用品进口',
     country: '德国',
     companyName: 'E2E Test GmbH',
     foundedAt: '2015',
@@ -855,7 +1000,7 @@ async function groupC(page) {
     coreReason: 'E2E 测试：价格与交期符合，等待客户确认订单'
   };
 
-  await test('C1', '打开新建客户弹窗：11 个字段 + 按钮 data-testid + role=dialog', async () => {
+  await test('C1', '打开新建客户弹窗：13 字段映射 + 产品选择器 testid + role=dialog', async () => {
     await resetDemo(page);
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
@@ -865,11 +1010,22 @@ async function groupC(page) {
       const form = document.getElementById('customer-form');
       const names = Array.from(form.querySelectorAll('[name]')).map(function (el) { return el.getAttribute('name'); });
       const keys = window.CRM_SCHEMA.FIELD_KEYS.slice();
+      const missingFields = keys.filter(function (key) {
+        if (key === 'product' || key === 'productModel') return false; /* v1.1 由产品选择器承载 */
+        return !form.elements[key];
+      });
+      const nameSelect = form.querySelector('[name="productName"]');
+      const modelSelect = form.querySelector('[name="productModel"]');
       return {
         testid: form.getAttribute('data-testid'),
         mode: form.getAttribute('data-mode'),
         names: names,
-        allFields: keys.every(function (key) { return names.indexOf(key) !== -1; }),
+        missingFields: missingFields,
+        productName: !!document.querySelector('[data-testid="product-name-select"]'),
+        productModel: !!document.querySelector('[data-testid="product-model-select"]'),
+        productCustom: !!document.querySelector('[data-testid="product-custom-input"]'),
+        productOptions: nameSelect ? Array.from(nameSelect.options).map(function (option) { return option.value; }) : [],
+        modelOptions: modelSelect ? modelSelect.options.length : 0,
         save: !!document.querySelector('[data-testid="btn-save-customer"]'),
         cancel: !!document.querySelector('[data-testid="btn-cancel-customer"]'),
         error: !!document.querySelector('[data-testid="form-error"]'),
@@ -879,7 +1035,10 @@ async function groupC(page) {
     })()`);
     assertEq(form.testid, 'form-customer', '表单 data-testid');
     assertEq(form.mode, 'create', '新建表单 data-mode');
-    assert(form.allFields, '表单 11 个字段 name 未齐全', form.names);
+    assertEq(form.missingFields.join(','), '', '13 个字段中缺少表单控件');
+    assert(form.productName && form.productModel && form.productCustom, 'v1.1 产品选择器 data-testid 缺失', form);
+    assert(form.productOptions.indexOf('不锈钢保温杯') !== -1, '产品名称下拉应含产品库产品', form.productOptions.slice(0, 16));
+    assertEq(form.modelOptions, 1, '未选产品名称前型号下拉只有占位项');
     assert(form.save && form.cancel && form.error, '表单按钮/错误提示 data-testid 缺失', form);
     assert(form.dialog, '弹窗缺少 role="dialog" aria-modal="true"');
     assertEq(form.required, 2, '必填标记数量（首次询盘时间 / 客户名称）');
@@ -887,20 +1046,28 @@ async function groupC(page) {
     assertEq(await page.evaluate(`document.querySelector('#customer-form [name="firstInquiryAt"]').value`), today, '新建表单首次询盘时间默认今天');
   });
 
-  await test('C2', '截图 screenshots/form.png（1440×900，新建客户弹窗）', async () => {
+  await test('C2', '截图 screenshots/form.png（1440×900，产品名称+型号联动已选）', async () => {
     await page.fill('customerName', 'E2E 验收客户');
-    await page.fill('product', '不锈钢保温杯 600ml');
+    await page.fill('mainBusiness', '户外用品进口分销');
     await page.fill('country', '德国');
     await page.fill('companyName', 'QA Acceptance GmbH');
     await page.fill('coreReason', '价格与交期均符合，等待客户确认订单');
+    await selectOption(page, '[data-testid="product-name-select"]', '不锈钢保温杯');
+    await waitExpr(page, `Array.from(document.querySelectorAll('#customer-form [name="productModel"] option')).length >= 4`, '型号下拉联动出现 ≥3 个型号');
+    await selectOption(page, '[data-testid="product-model-select"]', '500ml');
     const filled = await page.evaluate(`(() => {
       const form = document.getElementById('customer-form');
-      const read = function (key) { const el = form.elements[key]; return el ? el.value : null; };
-      return { customerName: read('customerName'), product: read('product'), country: read('country'), companyName: read('companyName') };
+      return {
+        customerName: form.querySelector('[name="customerName"]').value,
+        mainBusiness: form.querySelector('[name="mainBusiness"]').value,
+        productName: form.querySelector('[name="productName"]').value,
+        productModel: form.querySelector('[name="productModel"]').value
+      };
     })()`);
-    assertEq(filled.customerName, 'E2E 验收客户', '截图前表单客户名称已填入');
-    assertEq(filled.product, '不锈钢保温杯 600ml', '截图前表单咨询产品已填入');
-    assertEq(filled.country, '德国', '截图前表单国家已填入');
+    assertEq(filled.customerName, 'E2E 验收客户', '截图前客户名称已填入');
+    assertEq(filled.mainBusiness, '户外用品进口分销', '截图前主营业务已填入');
+    assertEq(filled.productName, '不锈钢保温杯', '截图前产品名称已选择');
+    assertEq(filled.productModel, '500ml', '截图前产品型号已选择');
     await page.evaluate(`(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); })()`);
     await sleep(200);
     await takeScreenshot(page, 'form.png');
@@ -924,13 +1091,16 @@ async function groupC(page) {
     assert(String(fieldError).length > 0, '客户名称字段级错误未显示');
   });
 
-  await test('C4', '填表保存 → store 13 条、弹窗关闭、表格出现新行、save-state 已保存', async () => {
+  await test('C4', '填表保存（产品名称+型号下拉）→ store 13 条、13 字段落库、表格出现产品小字', async () => {
     const today = await page.evaluate('window.CRM_SCHEMA.todayISO()');
     const values = Object.assign({}, newValues, { firstInquiryAt: today });
     for (const [key, value] of Object.entries(values)) {
       const ok = await page.fill(key, value);
       assert(ok, '表单字段填充失败：' + key);
     }
+    await selectOption(page, '[data-testid="product-name-select"]', '不锈钢保温杯');
+    await waitExpr(page, `Array.from(document.querySelectorAll('#customer-form [name="productModel"] option')).length >= 4`, '型号下拉联动出现 ≥3 个型号');
+    await selectOption(page, '[data-testid="product-model-select"]', '500ml');
     await clearToasts(page);
     await click(page, '[data-testid="btn-save-customer"]');
     await waitGone(page, '[data-testid="form-customer"]', '保存后弹窗关闭');
@@ -943,15 +1113,29 @@ async function groupC(page) {
     assertEq(record.customerName, 'E2E 测试客户', 'store 客户名称');
     assertEq(record.companyName, 'E2E Test GmbH', 'store 公司名');
     assertEq(record.country, '德国', 'store 国家');
+    assertEq(record.product, '不锈钢保温杯', 'store 咨询产品（产品库选择）');
+    assertEq(record.productModel, '500ml', 'store 产品型号（型号下拉选择）');
+    assertEq(record.mainBusiness, '测试主营业务：户外用品进口', 'store 主营业务');
     assertEq(record.followupStatus, '谈判中', 'store 跟进状态');
     assertEq(record.coreReason, 'E2E 测试：价格与交期符合，等待客户确认订单', 'store 核心原因');
     const inTable = await page.evaluate(`Array.from(document.querySelectorAll('tr[data-testid="customer-row"] td[data-col="customerName"]')).some(function (td) { return td.textContent.indexOf('E2E 测试客户') !== -1; })`);
     assert(inTable, '表格未出现新建客户');
+    const productCell = await page.evaluate(`(() => {
+      const row = Array.from(document.querySelectorAll('tr[data-testid="customer-row"]')).filter(function (tr) {
+        const td = tr.querySelector('td[data-col="customerName"]');
+        return td && td.textContent.indexOf('E2E 测试客户') !== -1;
+      })[0];
+      const cell = row ? row.querySelector('td[data-col="product"]') : null;
+      return cell ? { text: cell.textContent, sub: cell.querySelector('.cell-sub') ? cell.querySelector('.cell-sub').textContent : '' } : null;
+    })()`);
+    assert(productCell, '表格中找不到新客户的产品单元格');
+    assert(productCell.text.indexOf('不锈钢保温杯') !== -1, '产品单元格应显示产品名称', productCell);
+    assertEq(productCell.sub, '500ml', '产品单元格 .cell-sub 应显示型号');
     const saveState = await page.evaluate(`document.querySelector('#save-state').getAttribute('data-state')`);
     assertEq(saveState, 'saved', '写操作后 #save-state data-state');
   });
 
-  await test('C5', '刷新页面后新客户仍在（localStorage 持久化）', async () => {
+  await test('C5', '刷新页面后新客户仍在（localStorage 持久化 13 字段）', async () => {
     const id = scratch.customerId;
     assert(id, '前置保存用例未成功');
     await page.reload();
@@ -962,7 +1146,15 @@ async function groupC(page) {
       try {
         const payload = JSON.parse(localStorage.getItem('customer-crm.v1'));
         const record = payload.customers.filter(function (item) { return item.id === ${J(id)}; })[0];
-        return { count: payload.customers.length, name: record ? record.customerName : null, error: '' };
+        return {
+          count: payload.customers.length,
+          name: record ? record.customerName : null,
+          product: record ? record.product : null,
+          productModel: record ? record.productModel : null,
+          mainBusiness: record ? record.mainBusiness : null,
+          products: Array.isArray(payload.products) ? payload.products.length : null,
+          error: ''
+        };
       } catch (err) {
         return { count: null, name: null, error: String(err && err.message) };
       }
@@ -970,11 +1162,15 @@ async function groupC(page) {
     assertEq(persisted.error, '', 'localStorage 数据应可解析');
     assertEq(persisted.count, 13, 'localStorage 客户记录数');
     assertEq(persisted.name, 'E2E 测试客户', 'localStorage 中客户名称');
+    assertEq(persisted.product, '不锈钢保温杯', 'localStorage 中咨询产品');
+    assertEq(persisted.productModel, '500ml', 'localStorage 中产品型号');
+    assertEq(persisted.mainBusiness, '测试主营业务：户外用品进口', 'localStorage 中主营业务');
+    assertEq(persisted.products, 12, 'localStorage 中产品库条数');
     const visible = await page.evaluate(`Array.from(document.querySelectorAll('tr[data-testid="customer-row"] td[data-col="customerName"]')).some(function (td) { return td.textContent.indexOf('E2E 测试客户') !== -1; })`);
     assert(visible, '刷新后表格未显示新客户');
   });
 
-  await test('C6', '编辑客户：预填正确 → 保存后 store / 表格同步更新', async () => {
+  await test('C6', '编辑客户：产品选择器预填正确 → 保存后 store / 表格同步更新', async () => {
     const id = scratch.customerId;
     assert(id, '前置保存用例未成功');
     await goto(page, '#/customers');
@@ -985,12 +1181,20 @@ async function groupC(page) {
     const before = await formValues(page);
     assertEq(before.customerName, 'E2E 测试客户', '编辑弹窗预填客户名称');
     assertEq(before.companyName, 'E2E Test GmbH', '编辑弹窗预填公司名');
+    assertEq(before.productName, '不锈钢保温杯', '编辑弹窗产品名称下拉预填');
+    assertEq(before.productModel, '500ml', '编辑弹窗产品型号下拉预填');
+    assertEq(before.mainBusiness, '测试主营业务：户外用品进口', '编辑弹窗预填主营业务');
     await page.fill('customerName', 'E2E 测试客户（已改名）');
+    await page.fill('mainBusiness', '测试主营业务：家居用品分销');
     await clearToasts(page);
     await click(page, '[data-testid="btn-save-customer"]');
     await waitGone(page, '[data-testid="form-customer"]', '编辑保存后弹窗关闭');
     await waitExpr(page, `window.CustomerCRM.store.get(${J(id)}).customerName === 'E2E 测试客户（已改名）'`, 'store 客户名已更新');
-    assertEq(await page.evaluate(`window.CustomerCRM.store.get(${J(id)}).customerName`), 'E2E 测试客户（已改名）', 'store 客户名称');
+    const updated = await page.evaluate(`window.CustomerCRM.store.get(${J(id)})`);
+    assertEq(updated.customerName, 'E2E 测试客户（已改名）', 'store 客户名称');
+    assertEq(updated.mainBusiness, '测试主营业务：家居用品分销', 'store 主营业务已更新');
+    assertEq(updated.product, '不锈钢保温杯', '编辑后咨询产品保持');
+    assertEq(updated.productModel, '500ml', '编辑后产品型号保持');
     const visible = await page.evaluate(`Array.from(document.querySelectorAll('tr[data-testid="customer-row"] td[data-col="customerName"]')).some(function (td) { return td.textContent.indexOf('E2E 测试客户（已改名）') !== -1; })`);
     assert(visible, '表格未显示编辑后的客户名称');
     await waitToast(page, 'ok', '客户资料已更新');
@@ -1092,6 +1296,168 @@ async function groupC(page) {
 }
 
 /* ================================================================== */
+/* P. 产品库与产品选择器（v1.1 新增）                                   */
+/* ================================================================== */
+
+async function groupP(page) {
+  setGroup('P', '产品库与产品选择器（v1.1）');
+
+  await test('P1', '设置页产品库渲染：12 行、名称/型号/使用次数、表单与按钮 testid 齐全', async () => {
+    await resetDemo(page);
+    await goto(page, '#/settings');
+    await waitSelector(page, '#product-form', '产品库表单');
+    const lib = await page.evaluate(`(() => {
+      const rows = Array.from(document.querySelectorAll('[data-testid="product-row"]'));
+      const cell = function (row, selector) { const el = row.querySelector(selector); return el ? el.textContent.trim() : ''; };
+      const target = rows.filter(function (row) { return cell(row, '.product-name') === '不锈钢保温杯' && cell(row, '.product-model') === '500ml'; })[0];
+      const card = document.querySelector('[data-testid="product-library"]');
+      const usage = window.CustomerCRM.store.productUsage();
+      return {
+        rows: rows.length,
+        names: rows.map(function (row) { return cell(row, '.product-name'); }),
+        models: rows.map(function (row) { return cell(row, '.product-model'); }),
+        usageTexts: rows.map(function (row) { return cell(row, '.product-usage'); }),
+        targetUsage: target ? cell(target, '.product-usage') : null,
+        cardSub: card ? (card.querySelector('.card-sub') || {}).textContent || '' : '',
+        hasForm: !!document.querySelector('[data-testid="form-product"]'),
+        nameInput: !!document.querySelector('#product-form [name="productNewName"]'),
+        modelInput: !!document.querySelector('#product-form [name="productNewModel"]'),
+        addBtn: !!document.querySelector('[data-testid="btn-add-product"]'),
+        seedBtn: !!document.querySelector('[data-action="seed-products"]'),
+        deleteBtns: document.querySelectorAll('[data-testid="btn-delete-product"]').length,
+        usage500: usage['不锈钢保温杯|500ml'] || 0
+      };
+    })()`);
+    assertEq(lib.rows, 12, '产品库列表行数');
+    assert(lib.cardSub.indexOf('共 12 个产品') !== -1, '产品库卡片副标题应显示 12 个产品', lib.cardSub);
+    assertEq(lib.deleteBtns, 12, '每行都应有删除按钮');
+    assert(lib.hasForm && lib.nameInput && lib.modelInput && lib.addBtn, '产品库表单/输入/按钮 testid 缺失', lib);
+    assert(lib.seedBtn, '缺少「恢复预置产品」按钮');
+    assertEq(lib.names.indexOf('不锈钢保温杯') !== -1, true, '产品库应包含预置产品「不锈钢保温杯」', lib.names);
+    assertEq(lib.models.indexOf('500ml') !== -1, true, '产品库应包含预置型号「500ml」', lib.models);
+    assertEq(lib.usage500, 1, 'productUsage() 中 不锈钢保温杯|500ml 应被 1 位客户使用');
+    assertEq(lib.targetUsage, '1 位客户使用', '产品行使用次数文案');
+  });
+
+  await test('P2', '新增产品「测试产品/X1」→ 13 行、API 同步、客户表单下拉包含', async () => {
+    await page.fill('productNewName', '测试产品');
+    await page.fill('productNewModel', 'X1');
+    await clearToasts(page);
+    await click(page, '[data-testid="btn-add-product"]');
+    await waitExpr(page, `document.querySelectorAll('[data-testid="product-row"]').length === 13`, '产品库新增后 13 行');
+    await waitToast(page, 'ok', '已加入产品库');
+    const api = await page.evaluate(`(() => ({
+      count: window.CustomerCRM.store.listProducts().length,
+      names: window.CustomerCRM.store.productNames(),
+      models: window.CustomerCRM.store.productModels('测试产品')
+    }))()`);
+    assertEq(api.count, 13, 'store.listProducts() 条数');
+    assert(api.names.indexOf('测试产品') !== -1, 'productNames() 应包含新增产品', api.names);
+    assertEq(api.models.join(','), 'X1', 'productModels(测试产品)');
+    await goto(page, '#/customers');
+    await waitRowCount(page, 12);
+    await click(page, '[data-testid="new-customer"]');
+    await waitSelector(page, '[data-testid="product-name-select"]');
+    const options = await page.evaluate(`Array.from(document.querySelectorAll('#customer-form [name="productName"] option')).map(function (option) { return option.value; })`);
+    assert(options.indexOf('测试产品') !== -1, '新建客户产品名称下拉应包含新产品', options);
+    await selectOption(page, '[data-testid="product-name-select"]', '测试产品');
+    const modelOptions = await page.evaluate(`Array.from(document.querySelectorAll('#customer-form [name="productModel"] option')).map(function (option) { return option.value; })`);
+    assert(modelOptions.indexOf('X1') !== -1, '选中新产品后型号下拉应包含 X1', modelOptions);
+    await click(page, '[data-testid="btn-cancel-customer"]');
+    await waitGone(page, '[data-testid="form-customer"]');
+  });
+
+  await test('P3', '删除产品「测试产品/X1」→ 回 12 行、下拉同步移除', async () => {
+    await goto(page, '#/settings');
+    await waitSelector(page, '[data-testid="product-row"]');
+    const productId = await page.evaluate(`(() => {
+      const rows = Array.from(document.querySelectorAll('[data-testid="product-row"]'));
+      const target = rows.filter(function (row) {
+        const name = row.querySelector('.product-name');
+        return name && name.textContent.trim() === '测试产品';
+      })[0];
+      return target ? target.getAttribute('data-id') : null;
+    })()`);
+    assert(productId, '找不到新增的测试产品行');
+    await clearToasts(page);
+    await click(page, `[data-testid="product-row"][data-id="${productId}"] [data-testid="btn-delete-product"]`);
+    await waitExpr(page, `document.querySelectorAll('[data-testid="product-row"]').length === 12`, '删除产品后回 12 行');
+    const names = await page.evaluate('window.CustomerCRM.store.productNames()');
+    assert(names.indexOf('测试产品') === -1, 'productNames() 应移除已删除产品', names);
+    await goto(page, '#/customers');
+    await click(page, '[data-testid="new-customer"]');
+    await waitSelector(page, '[data-testid="product-name-select"]');
+    const options = await page.evaluate(`Array.from(document.querySelectorAll('#customer-form [name="productName"] option')).map(function (option) { return option.value; })`);
+    assert(options.indexOf('测试产品') === -1, '删除后客户表单下拉不应再包含该产品', options);
+    await click(page, '[data-testid="btn-cancel-customer"]');
+    await waitGone(page, '[data-testid="form-customer"]');
+  });
+
+  await test('P4', '删除预置产品后「恢复预置产品」→ 回到 12 行且 500ml 恢复', async () => {
+    await goto(page, '#/settings');
+    await waitSelector(page, '[data-testid="product-row"]');
+    const defaultId = await page.evaluate(`(() => {
+      const rows = Array.from(document.querySelectorAll('[data-testid="product-row"]'));
+      const target = rows.filter(function (row) {
+        const name = row.querySelector('.product-name');
+        const model = row.querySelector('.product-model');
+        return name && name.textContent.trim() === '不锈钢保温杯' && model && model.textContent.trim() === '500ml';
+      })[0];
+      return target ? target.getAttribute('data-id') : null;
+    })()`);
+    assert(defaultId, '找不到预置产品「不锈钢保温杯/500ml」');
+    await click(page, `[data-testid="product-row"][data-id="${defaultId}"] [data-testid="btn-delete-product"]`);
+    await waitExpr(page, `document.querySelectorAll('[data-testid="product-row"]').length === 11`, '删除后 11 行');
+    await clearToasts(page);
+    await click(page, '[data-action="seed-products"]');
+    await waitExpr(page, `document.querySelectorAll('[data-testid="product-row"]').length === 12`, '恢复预置产品后 12 行');
+    const restored = await page.evaluate(`(() => ({
+      names: window.CustomerCRM.store.productNames(),
+      models: window.CustomerCRM.store.productModels('不锈钢保温杯'),
+      names_with_500: window.CustomerCRM.store.listProducts().filter(function (item) { return item.model === '500ml'; }).length
+    }))()`);
+    assert(restored.names.indexOf('不锈钢保温杯') !== -1, '恢复后应包含预置产品名', restored.names);
+    assert(restored.models.indexOf('500ml') !== -1, '恢复后 不锈钢保温杯 应包含 500ml', restored.models);
+    assert(restored.names_with_500 >= 1, '恢复后应包含 500ml 型号');
+  });
+
+  await test('P5', '客户表单产品联动：≥3 型号、app.selectProduct、自定义产品加入产品库', async () => {
+    await goto(page, '#/customers');
+    await waitRowCount(page, 12);
+    await click(page, '[data-testid="new-customer"]');
+    await waitSelector(page, '[data-testid="product-name-select"]');
+    await selectOption(page, '[data-testid="product-name-select"]', '不锈钢保温杯');
+    const modelOptions = await page.evaluate(`Array.from(document.querySelectorAll('#customer-form [name="productModel"] option')).map(function (option) { return option.value; }).filter(Boolean)`);
+    assert(modelOptions.length >= 3, '型号下拉应出现 ≥3 个型号', modelOptions);
+    await selectOption(page, '[data-testid="product-model-select"]', '500ml');
+    assertEq(await page.evaluate(`document.querySelector('#customer-form [name="productModel"]').value`), '500ml', '可选中 500ml');
+    const apiResult = await page.evaluate(`window.CustomerCRM.app.selectProduct('不锈钢保温杯', '750ml')`);
+    assertEq(apiResult, true, 'app.selectProduct 返回值');
+    assertEq(await page.evaluate(`document.querySelector('#customer-form [name="productModel"]').value`), '750ml', 'app.selectProduct 联动型号');
+    await selectOption(page, '[data-testid="product-name-select"]', '__custom__');
+    const customState = await page.evaluate(`(() => ({
+      customVisible: !document.querySelector('[data-testid="product-custom-input"]').hidden,
+      modelHidden: document.querySelector('#customer-form [name="productModel"]').hidden,
+      addVisible: !document.querySelector('.product-add-btn').hidden
+    }))()`);
+    assert(customState.customVisible, '选择「手动输入其他产品」后自定义输入框应显示', customState);
+    assert(customState.modelHidden, '自定义模式下型号下拉应隐藏', customState);
+    assert(customState.addVisible, '自定义模式下「加入产品库」按钮应显示', customState);
+    await page.fill('productCustom', '测试定制产品');
+    await page.fill('productModelCustom', 'S-01');
+    await clearToasts(page);
+    await click(page, '[data-action="add-product-from-form"]');
+    await waitToast(page, 'ok', '已加入产品库');
+    const names = await page.evaluate('window.CustomerCRM.store.productNames()');
+    assert(names.indexOf('测试定制产品') !== -1, '自定义产品应加入产品库', names);
+    await click(page, '[data-testid="btn-cancel-customer"]');
+    await waitGone(page, '[data-testid="form-customer"]');
+  });
+
+  await assertNoErrors(page, 'P6', '产品库与产品选择器流程无 console / page 错误');
+}
+
+/* ================================================================== */
 /* D. 键盘快捷键                                                        */
 /* ================================================================== */
 
@@ -1132,7 +1498,7 @@ async function groupD(page) {
 async function groupE(page) {
   setGroup('E', '智能识别');
 
-  await test('E1', '粘贴示例询盘 → 识别 11 项、命中 ≥6、摘要计数一致', async () => {
+  await test('E1', '粘贴示例询盘 → 识别 13 项、命中 ≥11、含产品型号/主营业务', async () => {
     await resetDemo(page);
     await goto(page, '#/recognize');
     await waitSelector(page, '[data-testid="recognize-input"]');
@@ -1159,44 +1525,61 @@ async function groupE(page) {
       evidenceCount: document.querySelectorAll('.recog-evidence').length,
       followupChips: document.querySelectorAll('.recog-result-body .followup-strip .followup-chip').length
     }))()`);
-    assertEq(dom.items, 11, '识别结果项数（11 个字段）');
-    assert(dom.filled >= 6, '识别命中字段数应 ≥6', dom.filled);
-    assertEq(dom.filled + dom.missing, 11, '命中 + 未识别 = 11');
+    assertEq(dom.items, 13, '识别结果项数（13 个字段）');
+    assert(dom.filled >= 11, '识别命中字段数应 ≥11', dom.filled);
+    assertEq(dom.filled + dom.missing, 13, '命中 + 未识别 = 13');
     const expected = await page.evaluate('window.CustomerCRM.app.recognize(window.CrmParser.SAMPLE_TEXTS[0].text)');
     assert(expected && expected.ok, 'CrmParser.recognize 应返回 ok');
     assertEq(dom.filled, expected.filled, '界面命中数 = parser.filled');
-    const summaryMatch = dom.summary.match(/已识别\s*(\d+)/);
+    const summaryMatch = dom.summary.match(/已识别\s*(\d+)\s*\/\s*(\d+)/);
     assert(summaryMatch, '识别摘要文案格式异常', dom.summary);
     assertEq(Number(summaryMatch[1]), dom.filled, '摘要计数 = DOM 命中项数');
-    assert(dom.evidenceCount >= 6, '应展示原文证据（≥6 条）', dom.evidenceCount);
+    assertEq(Number(summaryMatch[2]), 13, '摘要分母应为 13');
+    assert(dom.evidenceCount >= 11, '应展示原文证据（≥11 条）', dom.evidenceCount);
     assert(dom.followupChips >= 1, '应展示识别到的跟进记录', dom.followupChips);
+    assert(dom.fields.productModel.indexOf('500ml') !== -1, '识别产品型号应含 500ml', dom.fields.productModel);
+    assert(dom.fields.mainBusiness.indexOf('户外用品') !== -1, '识别主营业务应含 户外用品', dom.fields.mainBusiness);
     scratch.recognized = { dom, expected, sample };
   });
 
-  await test('E2', '识别字段值与 CrmParser.recognize 直接调用一致', async () => {
+  await test('E2', '识别字段值与 CrmParser.recognize 直接调用一致（13 字段）', async () => {
     const state = scratch.recognized;
     assert(state, '前置识别用例未成功');
     const fields = state.expected.fields;
     for (const key of Object.keys(fields)) {
       assertEq(state.dom.fields[key], fields[key], '识别字段 ' + key + ' 与 parser 一致');
     }
+    assertEq(state.expected.filled, 13, 'parser 对样例 A 应命中 13/13');
     assertEq(state.dom.fields.customerName, 'Michael Braun', '识别客户名称');
     assertEq(state.dom.fields.country, '德国', '识别国家');
     assertEq(state.dom.fields.firstInquiryAt, '2026-09-12', '识别首次询盘时间');
+    assertEq(state.dom.fields.productModel, '500ml', '识别产品型号');
+    assertEq(state.dom.fields.mainBusiness, '户外用品', '识别主营业务');
     assert(state.dom.fields.product.indexOf('保温杯') !== -1, '识别咨询产品应含保温杯', state.dom.fields.product);
   });
 
-  await test('E3', '「填入表格并核对」→ 新建表单按识别结果预填', async () => {
+  await test('E3', '「填入表格并核对」→ 新建表单预填，产品下拉显示名称/型号', async () => {
     const state = scratch.recognized;
     assert(state, '前置识别用例未成功');
     await click(page, '[data-testid="btn-fill-customer"]');
     await waitSelector(page, '[data-testid="form-customer"]', '预填表单弹窗');
-    const values = await formValues(page);
+    const values = await page.evaluate(`(() => {
+      const form = document.getElementById('customer-form');
+      const read = function (name) { const el = form.querySelector('[name="' + name + '"]'); return el ? el.value : null; };
+      return {
+        customerName: read('customerName'),
+        firstInquiryAt: read('firstInquiryAt'),
+        mainBusiness: read('mainBusiness'),
+        productName: read('productName'),
+        productModel: read('productModel')
+      };
+    })()`);
     assertEq(await page.evaluate(`document.getElementById('customer-form').getAttribute('data-mode')`), 'create', '预填表单为新建模式');
     assertEq(values.customerName, state.expected.fields.customerName, '预填客户名称');
     assertEq(values.firstInquiryAt, state.expected.fields.firstInquiryAt, '预填首次询盘时间');
-    assertEq(values.country, state.expected.fields.country, '预填国家');
-    assertEq(values.companyName, state.expected.fields.companyName, '预填公司名');
+    assertEq(values.mainBusiness, state.expected.fields.mainBusiness, '预填主营业务');
+    assertEq(values.productName, '不锈钢保温杯', '产品名称下拉应对齐产品库（不锈钢保温杯）');
+    assertEq(values.productModel, '500ml', '产品型号下拉应显示 500ml');
     assert(await page.exists('.form-notice'), '预填表单应显示「已根据识别结果自动填入」提示');
     await click(page, '[data-testid="btn-cancel-customer"]');
     await waitGone(page, '[data-testid="form-customer"]', '取消预填表单');
@@ -1224,6 +1607,9 @@ async function groupE(page) {
     assertEq(added.customerName, state.expected.fields.customerName, '新增记录客户名称');
     assertEq(added.firstInquiryAt, state.expected.fields.firstInquiryAt, '新增记录首次询盘时间');
     assertEq(added.country, state.expected.fields.country, '新增记录国家');
+    assert(added.product.indexOf('保温杯') !== -1, '新增记录咨询产品应含保温杯', added.product);
+    assertEq(added.productModel, '500ml', '新增记录产品型号');
+    assertEq(added.mainBusiness, '户外用品', '新增记录主营业务');
     assert(added.followups.length >= 1, '新增记录应带识别到的跟进记录', added.followups);
     scratch.recognizeAddedId = added.id;
   });
@@ -1252,6 +1638,10 @@ async function groupF(page) {
     await waitRowCount(page, 12);
     const expectedNames = await filteredNames(page);
     const expectedDetailRows = await page.evaluate('window.CustomerCRM.app.filtered().reduce(function (n, record) { return n + Math.min(3, (record.followups || []).length); }, 0)');
+    const expectedFirst = await page.evaluate(`(() => {
+      const record = window.CustomerCRM.app.filtered()[0];
+      return { customerName: record.customerName, product: record.product, productModel: record.productModel, mainBusiness: record.mainBusiness };
+    })()`);
     clearDownloads();
     await page.setDownloadBehavior(DOWNLOADS);
     await clearToasts(page);
@@ -1261,7 +1651,7 @@ async function groupF(page) {
     assert(/^客户跟进台账_\d{8}_\d{4}\.xlsx$/.test(filename), '导出文件名格式应为 客户跟进台账_YYYYMMDD_HHmm.xlsx', filename);
     assert(filename.indexOf('客户跟进台账_' + localDateStamp() + '_') === 0, '导出文件名日期应为当天', { filename, today: localDateStamp() });
     await waitToast(page, 'ok', '已导出 12 位客户');
-    scratch.export = { filePath, filename, expectedNames, expectedDetailRows };
+    scratch.export = { filePath, filename, expectedNames, expectedDetailRows, expectedFirst };
   });
 
   await test('F2', '文件结构：PK 头、体积、ZIP 部件完整、两个工作表 XML、行数正确', async () => {
@@ -1292,7 +1682,7 @@ async function groupF(page) {
     assert(sheet1Xml.indexOf(state.expectedNames[0]) !== -1, '客户总表应包含客户中文名', state.expectedNames[0]);
   });
 
-  await test('F3', 'openpyxl 校验：两个工作表 / 19 列表头 / 行数 / 冻结 / 自动筛选 / 客户名顺序', async () => {
+  await test('F3', 'openpyxl 校验：21 列表头（含产品型号/主营业务）/ 11 列明细 / 行数 / 冻结 / 自动筛选 / 新列有值', async () => {
     const state = scratch.export;
     assert(state, '前置导出用例未成功');
     if (!python) {
@@ -1304,13 +1694,19 @@ async function groupF(page) {
     const sheet1 = data.sheets['客户总表'];
     const sheet2 = data.sheets['跟进明细'];
     assertEq(sheet1.max_row, state.expectedNames.length + 1, 'openpyxl 客户总表行数');
-    assertEq(sheet1.max_column, 19, '客户总表列数（19）');
-    assertEq(sheet1.header.join('|'), EXPECTED_TOTAL_HEADERS.join('|'), '客户总表 19 列表头文本');
+    assertEq(sheet1.max_column, 21, '客户总表列数（21）');
+    assertEq(sheet1.header.join('|'), EXPECTED_TOTAL_HEADERS.join('|'), '客户总表 21 列表头文本');
+    assertEq(sheet1.first_row[3], state.expectedFirst.product, 'E 列咨询产品 = 导出首条记录产品');
+    assertEq(sheet1.first_row[4], state.expectedFirst.productModel, 'E/F 列产品型号有值且正确');
+    assertEq(sheet1.first_row[7], state.expectedFirst.mainBusiness, 'H 列主营业务有值且正确');
+    assert(String(sheet1.first_row[4]).length > 0, '产品型号列有值');
+    assert(String(sheet1.first_row[7]).length > 0, '主营业务列有值');
     assertEq(sheet1.freeze, 'A2', '客户总表冻结首行');
     assert(!!sheet1.auto_filter, '客户总表未设置自动筛选');
     assertEq(sheet1.names.join('|'), state.expectedNames.join('|'), '客户总表客户名顺序 = 导出记录顺序');
     assertEq(sheet2.max_row, state.expectedDetailRows + 1, 'openpyxl 跟进明细行数');
-    assertEq(sheet2.max_column, 10, '跟进明细列数（10）');
+    assertEq(sheet2.max_column, 11, '跟进明细列数（11）');
+    assertEq(sheet2.header.join('|'), EXPECTED_DETAIL_HEADERS.join('|'), '跟进明细 11 列表头文本');
   });
 
   await test('F4', '有筛选时只导出筛选结果（已成交 2 条 → 工作表 3 行）', async () => {
@@ -1335,6 +1731,9 @@ async function groupF(page) {
     if (python) {
       const data = runPythonXlsxCheck(filePath);
       assertEq(data.sheets['客户总表'].names.join('|'), filtered.join('|'), 'openpyxl 读回的客户名 = 当前筛选结果');
+      assertEq(data.sheets['客户总表'].max_column, 21, '筛选导出客户总表列数（21）');
+      assertEq(data.sheets['客户总表'].max_row, filtered.length + 1, '筛选导出客户总表行数（openpyxl）');
+      assertEq(data.sheets['跟进明细'].max_column, 11, '筛选导出明细列数（11）');
     }
     await click(page, '[data-testid="filter-reset"]');
     await waitRowCount(page, 12);
@@ -1449,7 +1848,7 @@ async function groupG(page) {
     assertEq(domTones.ok + domTones.warn + domTones.danger + domTones.none, 12, 'age 单元格数量');
   });
 
-  await test('G6', '导出 JSON 备份：文件名、合法 JSON、12 条客户', async () => {
+  await test('G6', '导出 JSON 备份：文件名、合法 JSON、12 条客户、产品库与设置', async () => {
     await goto(page, '#/settings');
     await waitSelector(page, '[data-action="export-json"]');
     clearDownloads();
@@ -1463,15 +1862,17 @@ async function groupG(page) {
     let payload = null;
     try { payload = JSON.parse(text); } catch (err) { fail('JSON 备份无法解析', String(err && err.message)); }
     assertEq(payload.app, 'CustomerCRM', '备份 app 标识');
-    assertEq(payload.version, '1.0.0', '备份版本号');
+    assertEq(payload.version, '1.1.0', '备份版本号');
     assertEq(payload.customers.length, 12, '备份客户数');
     assert(payload.customers.some((record) => record.customerName === 'Michael Braun'), '备份应包含示例客户 Michael Braun');
+    assertEq(Array.isArray(payload.products) ? payload.products.length : -1, 12, '备份应包含 12 条产品库数据');
+    assert(payload.products.some((product) => product.name === '不锈钢保温杯' && product.model === '500ml'), '备份产品库应含 不锈钢保温杯/500ml');
     assert(payload.settings && typeof payload.settings.warnDays === 'number', '备份应包含设置', payload.settings);
     scratch.backupPath = path.join(TEMP, 'customer-crm-backup.json');
     fs.copyFileSync(filePath, scratch.backupPath);
   });
 
-  await test('G7', '清空全部数据 → 空状态引导 + 仪表盘统计归零', async () => {
+  await test('G7', '清空全部数据 → 空状态引导 + 仪表盘统计归零（产品库保留）', async () => {
     await clearToasts(page);
     await click(page, '[data-testid="btn-clear-all"]');
     await waitSelector(page, '[data-confirm-ok]', '清空确认弹窗');
@@ -1479,6 +1880,7 @@ async function groupG(page) {
     assert(confirmText.indexOf('删除本机保存的全部客户记录') !== -1, '清空确认文案', confirmText);
     await click(page, '[data-confirm-ok]');
     await waitStoreCount(page, 0);
+    assertEq(await page.evaluate('window.CustomerCRM.store.listProducts().length'), 12, '清空客户数据后产品库应保留 12 条');
     await goto(page, '#/customers');
     await waitSelector(page, '.empty', '空状态引导');
     const empty = await page.evaluate(`(() => ({
@@ -1517,6 +1919,7 @@ async function groupG(page) {
     assert(injected, '无法向文件选择框注入备份文件');
     await waitStoreCount(page, 12, 15000);
     await waitToast(page, 'ok', '已从备份导入');
+    assertEq(await page.evaluate('window.CustomerCRM.store.listProducts().length'), 12, '恢复后产品库应为 12 条');
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
     const restored = await page.evaluate(`window.CustomerCRM.store.list().filter(function (record) { return record.customerName === 'Michael Braun'; }).length`);
@@ -1552,7 +1955,7 @@ async function groupG(page) {
 async function groupH(page) {
   setGroup('H', '响应式、侧栏抽屉与打印媒体');
 
-  await test('H1', '1440×900：无横向溢出、侧栏可见、14 列在 DOM、低优先 3 列转行展开详情', async () => {
+  await test('H1', '1440×900 宽版台账：内容宽 ≥1140、表格 min-width ≥1328、15 列、3 列折叠、产品/主营可见', async () => {
     await resetDemo(page);
     await page.setViewport(1440, 900);
     await goto(page, '#/customers');
@@ -1560,10 +1963,12 @@ async function groupH(page) {
     await assertNoOverflow(page, '1440');
     const info = await sidebarRect(page);
     assert(info.left >= 0 && info.width > 200, '1440 侧栏应完整可见', info);
-    const table = await page.evaluate(`(() => {
+    const layout = await page.evaluate(`(() => {
+      const inner = document.querySelector('.view-inner');
+      const table = document.querySelector('.data-table--customers');
       const row = document.querySelector('tr[data-testid="customer-row"]');
       const visible = {};
-      ['firstInquiryAt', 'age', 'customerName', 'product', 'country', 'companyName', 'followupStatus', 'dealStatus', 'coreReason'].forEach(function (key) {
+      ['firstInquiryAt', 'age', 'customerName', 'product', 'country', 'companyName', 'mainBusiness', 'followupStatus', 'dealStatus', 'coreReason'].forEach(function (key) {
         const td = document.querySelector('tr[data-testid="customer-row"] td[data-col="' + key + '"]');
         visible[key] = td ? getComputedStyle(td).display !== 'none' : null;
       });
@@ -1574,32 +1979,52 @@ async function groupH(page) {
       });
       const actions = document.querySelector('tr[data-testid="customer-row"] td.col-actions');
       return {
+        bodyClass: document.body.className,
+        innerWidth: inner ? Math.round(inner.getBoundingClientRect().width) : 0,
+        tableMinWidth: table ? parseFloat(getComputedStyle(table).minWidth) : 0,
         tds: row ? row.querySelectorAll('td').length : 0,
         visible: visible,
         hidden: hidden,
         actionsVisible: actions ? getComputedStyle(actions).display !== 'none' : null
       };
     })()`);
-    assertEq(table.tds, 14, '数据行 td 数量（14 列仍在 DOM）');
-    for (const key of ['firstInquiryAt', 'age', 'customerName', 'product', 'country', 'companyName', 'followupStatus', 'dealStatus', 'coreReason']) {
-      assertEq(table.visible[key], true, '1440 应显示列 ' + key);
+    assert(/route-customers/.test(layout.bodyClass), '台账页应带 body.route-customers', layout.bodyClass);
+    assert(layout.innerWidth >= 1140, '1440 台账内容宽度应 ≥1140（契约实测 1152）', layout.innerWidth);
+    assert(layout.tableMinWidth >= 1328, '1440 表格 min-width 应 ≥1328', layout.tableMinWidth);
+    assertEq(layout.tds, 15, '数据行 td 数量（15 列仍在 DOM）');
+    for (const key of ['firstInquiryAt', 'age', 'customerName', 'product', 'country', 'companyName', 'mainBusiness', 'followupStatus', 'dealStatus', 'coreReason']) {
+      assertEq(layout.visible[key], true, '1440 应显示列 ' + key);
     }
     for (const key of ['foundedAt', 'teamSize', 'annualRevenue']) {
-      assertEq(table.hidden[key], true, '1440 应隐藏列（改在行展开详情展示）' + key);
+      assertEq(layout.hidden[key], true, '1440 应隐藏列（改在行展开详情展示）' + key);
     }
-    assertEq(table.actionsVisible, true, '1440 操作列应可见');
-    // 三个低优先字段改在行展开详情的 .row-detail-meta 中展示（CONTRACT §7.3 新口径）
+    assertEq(layout.actionsVisible, true, '1440 操作列应可见');
+    // 低优先字段改在行展开详情的 .row-detail-meta 中展示
     const firstId = await page.evaluate(`document.querySelector('tr[data-testid="customer-row"]').getAttribute('data-id')`);
+    const record = await page.evaluate(`window.CustomerCRM.store.get(${J(firstId)})`);
     await click(page, `tr[data-id="${firstId}"] [data-testid="row-toggle"]`);
     await waitExpr(page, `!document.querySelector('tr.row-detail[data-detail="${firstId}"]').hidden`, '行详情展开');
     const meta = await page.evaluate(`(() => { const el = document.querySelector('tr.row-detail[data-detail="${firstId}"] .row-detail-meta'); return el ? el.textContent : ''; })()`);
-    for (const label of ['成立时间', '团队规模', '年营收', '首次询盘', '最近更新']) {
+    for (const label of ['产品型号', '主营业务', '成立时间', '团队规模', '年营收', '首次询盘', '最近更新']) {
       assert(meta.indexOf(label) !== -1, '行展开详情应含「' + label + '」', meta);
     }
+    assert(meta.indexOf(record.productModel) !== -1, '行展开详情应含产品型号值', record.productModel);
+    assert(meta.indexOf(record.mainBusiness) !== -1, '行展开详情应含主营业务值', record.mainBusiness);
     await click(page, `tr[data-id="${firstId}"] [data-testid="row-toggle"]`);
   });
 
-  await test('H2', '1024×800：无横向溢出、侧栏收起、隐藏 3 列', async () => {
+  await test('H1b', '宽版对比：台账 .view-inner 宽度明显大于仪表盘', async () => {
+    const customersWidth = await page.evaluate(`Math.round(document.querySelector('.view-inner').getBoundingClientRect().width)`);
+    await goto(page, '#/dashboard');
+    await waitSelector(page, '[data-testid="stat-total"]');
+    const dashboardWidth = await page.evaluate(`Math.round(document.querySelector('.view-inner').getBoundingClientRect().width)`);
+    assert(customersWidth >= 1140, '台账内容宽度 ≥1140', customersWidth);
+    assert(customersWidth > dashboardWidth, '台账宽版内容宽度应大于仪表盘', { customersWidth, dashboardWidth });
+    await goto(page, '#/customers');
+    await waitRowCount(page, 12);
+  });
+
+  await test('H2', '1024×800：无横向溢出、侧栏收起、隐藏 3 列，主营业务可见', async () => {
     await page.setViewport(1024, 800);
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
@@ -1610,10 +2035,12 @@ async function groupH(page) {
     for (const key of ['foundedAt', 'teamSize', 'annualRevenue']) {
       assertEq(await columnVisible(page, key), false, '1024 应隐藏列 ' + key);
     }
-    assertEq(await columnVisible(page, 'product'), true, '1024 应显示咨询产品列');
+    for (const key of ['product', 'mainBusiness', 'companyName', 'coreReason']) {
+      assertEq(await columnVisible(page, key), true, '1024 应显示列 ' + key);
+    }
   });
 
-  await test('H3', '768×900：无横向溢出、侧栏收起；767（<768）隐藏产品/公司名/核心原因', async () => {
+  await test('H3', '768×900 边界 + 767（<768）：隐藏产品/主营业务/公司名/核心原因/距上次跟进', async () => {
     await page.setViewport(768, 900);
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
@@ -1621,19 +2048,21 @@ async function groupH(page) {
     await assertNoOverflow(page, '768');
     const info = await sidebarRect(page);
     assert(info.right <= 1, '768 侧栏应默认收起', info);
-    // 断点为 <768：768 本身仍显示咨询产品列（边界语义）
+    // 断点为 <768：768 本身仍显示产品/主营业务列（边界语义）
     assertEq(await columnVisible(page, 'product'), true, '768 应显示咨询产品列（媒体查询为 <768）');
-    // 收窄到 767，验证 <768 断点隐藏 3 列
+    assertEq(await columnVisible(page, 'mainBusiness'), true, '768 应显示主营业务列');
+    assertEq(await columnVisible(page, 'age'), true, '768 应显示距上次跟进列');
+    // 收窄到 767，验证 <768 断点隐藏
     await page.setViewport(767, 900);
     await waitExpr(page, `getComputedStyle(document.querySelector('th[data-col="product"]')).display === 'none'`, '767 隐藏产品列', 5000);
-    for (const key of ['product', 'companyName', 'coreReason']) {
+    for (const key of ['product', 'mainBusiness', 'companyName', 'coreReason', 'age']) {
       assertEq(await columnVisible(page, key), false, '767 应隐藏列 ' + key);
     }
     assertEq(await columnVisible(page, 'customerName'), true, '767 应显示客户名称列');
     await assertNoOverflow(page, '767');
   });
 
-  await test('H4', '390×844：无横向溢出、侧栏收起、菜单按钮可见', async () => {
+  await test('H4', '390×844：无横向溢出、侧栏收起、菜单按钮可见、移动端折叠列', async () => {
     await page.setViewport(390, 844, { mobile: true });
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
@@ -1649,6 +2078,10 @@ async function groupH(page) {
       return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0;
     })()`);
     assertEq(toggleVisible, true, '390 菜单按钮应可见');
+    for (const key of ['product', 'mainBusiness', 'companyName', 'coreReason']) {
+      assertEq(await columnVisible(page, key), false, '390 应隐藏列 ' + key);
+    }
+    assertEq(await columnVisible(page, 'customerName'), true, '390 应显示客户名称列');
   });
 
   await test('H5', '390 侧栏抽屉：菜单按钮打开（遮罩可见）→ 点遮罩关闭', async () => {
@@ -1678,7 +2111,7 @@ async function groupH(page) {
     assert(closedState.right <= 1, '抽屉关闭后侧栏应在视口外', closedState);
   });
 
-  await test('H6', '打印媒体：侧栏/顶栏/工具栏/操作列隐藏，表头 table-header-group', async () => {
+  await test('H6', '打印媒体（台账）：侧栏/工具栏/操作列隐藏、全部业务列恢复（含主营业务）', async () => {
     await page.setViewport(1440, 900);
     await goto(page, '#/customers');
     await waitRowCount(page, 12);
@@ -1707,13 +2140,44 @@ async function groupH(page) {
       assert(printState[key] && printState[key].display === 'none', '打印媒体下应隐藏：' + key, printState[key]);
     }
     assert(printState.viewVisible && printState.viewVisible.display !== 'none', '打印媒体下内容应保持可见', printState.viewVisible);
-    // 打印时恢复 <=1599 被隐藏的三列；展开列/操作列仍隐藏
-    for (const key of ['foundedAt', 'teamSize', 'annualRevenue']) {
+    // 打印时恢复所有业务列（含 <=1599 折叠的 3 列与主营业务）
+    for (const key of ['foundedAt', 'teamSize', 'annualRevenue', 'mainBusiness', 'product', 'companyName', 'coreReason']) {
       assertEq(await columnVisible(page, key), true, '打印媒体下应恢复列 ' + key);
     }
     const expandHidden = await page.evaluate(`(function () { const th = document.querySelector('th.col-expand'); return th ? getComputedStyle(th).display === 'none' : null; })()`);
     assertEq(expandHidden, true, '打印媒体下展开列应隐藏');
+    const actionHidden = await page.evaluate(`(function () { const th = document.querySelector('th.col-actions'); return th ? getComputedStyle(th).display === 'none' : null; })()`);
+    assertEq(actionHidden, true, '打印媒体下操作列应隐藏');
     assertEq(printState.theadDisplay, 'table-header-group', '打印媒体下 thead 应重复表头');
+    await page.emulateMedia('');
+    await waitExpr(page, `getComputedStyle(document.querySelector('.sidebar')).display !== 'none'`, '恢复 screen 媒体');
+    await clearToasts(page);
+  });
+
+  await test('H6b', '打印媒体（仪表盘）：国家分布扇形图保留可见', async () => {
+    await goto(page, '#/dashboard');
+    await waitSelector(page, '[data-testid="country-pie"]');
+    await page.emulateMedia('print');
+    await waitExpr(page, `getComputedStyle(document.querySelector('.sidebar')).display === 'none'`, '仪表盘打印样式生效');
+    const piePrint = await page.evaluate(`(() => {
+      const root = document.querySelector('[data-testid="country-pie"]');
+      if (!root) return null;
+      const style = getComputedStyle(root);
+      const rect = root.getBoundingClientRect();
+      return {
+        display: style.display,
+        visibility: style.visibility,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        slices: root.querySelectorAll('.pie-slice').length,
+        total: (root.querySelector('.pie-total') || {}).textContent || ''
+      };
+    })()`);
+    assert(piePrint, '打印媒体下找不到扇形图容器');
+    assert(piePrint.display !== 'none' && piePrint.visibility !== 'hidden', '打印媒体下扇形图应保留可见', piePrint);
+    assert(piePrint.width > 100 && piePrint.height > 100, '打印媒体下扇形图应有实际尺寸', piePrint);
+    assertEq(piePrint.slices, 7, '打印媒体下扇形图切片数');
+    assertEq(String(piePrint.total).trim(), '12', '打印媒体下扇形图中心数');
     await page.emulateMedia('');
     await waitExpr(page, `getComputedStyle(document.querySelector('.sidebar')).display !== 'none'`, '恢复 screen 媒体');
     await clearToasts(page);
@@ -1740,9 +2204,9 @@ async function groupH(page) {
 /* ================================================================== */
 
 async function groupI(page) {
-  setGroup('I', '数据损坏兜底');
+  setGroup('I', '数据损坏与旧数据升级兜底');
 
-  await test('I1', 'localStorage 非法 JSON → 刷新后不白屏，自动重建 12 条示例数据', async () => {
+  await test('I1', 'localStorage 非法 JSON → 刷新后不白屏，自动重建 12 条客户 + 12 条产品', async () => {
     await resetDemo(page);
     await page.setViewport(1440, 900);
     await page.evaluate(`localStorage.setItem('customer-crm.v1', '{bad json')`);
@@ -1758,19 +2222,88 @@ async function groupI(page) {
       try { parsed = JSON.parse(localStorage.getItem('customer-crm.v1')); } catch (err) { error = String(err && err.message); }
       return {
         total: window.CustomerCRM.store.list().length,
+        products: window.CustomerCRM.store.listProducts().length,
         domTotal: (document.querySelector('[data-testid="stat-total"]') || {}).textContent || '',
         viewLength: (document.getElementById('view-inner') || {}).innerHTML.length || 0,
         storedCount: parsed && parsed.customers ? parsed.customers.length : null,
+        storedProducts: parsed && parsed.products ? parsed.products.length : null,
+        storedVersion: parsed ? parsed.version : null,
         error: error
       };
     })()`);
     assertEq(health.total, 12, '损坏后示例数据条数（store）');
+    assertEq(health.products, 12, '损坏后产品库条数（store）');
     assertEq(health.domTotal.trim(), '12', '损坏后仪表盘客户总数');
     assert(health.viewLength > 1000, '页面疑似白屏（#view-inner 内容过短）', health.viewLength);
     assertEq(health.storedCount, 12, '损坏数据应被重写为合法 payload');
+    assertEq(health.storedProducts, 12, 'payload 中产品库应重建为 12 条');
     assertEq(health.error, '', 'localStorage 应恢复为合法 JSON');
     const errors = page.errors();
     assert(errors.length === 0, '损坏兜底过程不应产生 pageerror / console error', errors.slice(0, 4));
+  });
+
+  await test('I2', 'v1.0 旧 payload（无 products）升级 → 自动补齐 12 条预置产品', async () => {
+    const today = await page.evaluate('window.CRM_SCHEMA.todayISO()');
+    const legacy = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      settings: { warnDays: 7, staleDays: 14, seeded: true },
+      customers: [{
+        id: 'c_legacy001',
+        firstInquiryAt: today,
+        customerName: '旧版本客户',
+        product: '不锈钢保温杯',
+        productModel: '500ml',
+        country: '德国',
+        companyName: 'Legacy GmbH',
+        mainBusiness: '旧数据主营业务',
+        foundedAt: '2000',
+        teamSize: '10 人',
+        annualRevenue: '100 万欧元',
+        followupStatus: '新询盘',
+        dealStatus: '未成交',
+        coreReason: '',
+        followups: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }]
+    };
+    await page.evaluate(`localStorage.setItem('customer-crm.v1', ${J(JSON.stringify(legacy))})`);
+    page.clearErrors();
+    await page.reload();
+    await page.waitForApp({ timeout: 25000 });
+    await waitExpr(page, `!!document.querySelector('#view-inner .page')`, '旧数据升级后页面渲染', 15000);
+    const upgraded = await page.evaluate(`(() => {
+      let parsed = null;
+      try { parsed = JSON.parse(localStorage.getItem('customer-crm.v1')); } catch (err) { parsed = null; }
+      return {
+        customers: window.CustomerCRM.store.list().length,
+        products: window.CustomerCRM.store.listProducts().length,
+        names: window.CustomerCRM.store.productNames().length,
+        storedProducts: parsed && parsed.products ? parsed.products.length : null
+      };
+    })()`);
+    assertEq(upgraded.customers, 1, '旧客户数据应保留');
+    assertEq(upgraded.products, 12, '旧 payload 应补齐 12 条预置产品');
+    assert(upgraded.names >= 6, '补齐后的产品名称应可用', upgraded.names);
+    // 升级后的 payload 会在首次写操作时持久化 products（v1.0 → v1.1 迁移）
+    await goto(page, '#/settings');
+    await waitSelector(page, '#setting-warnDays');
+    await clearToasts(page);
+    await click(page, '[data-action="save-settings"]');
+    await waitToast(page, 'ok', '设置已保存');
+    const persisted = await page.evaluate(`(() => {
+      let parsed = null;
+      try { parsed = JSON.parse(localStorage.getItem('customer-crm.v1')); } catch (err) { parsed = null; }
+      return {
+        products: parsed && parsed.products ? parsed.products.length : null,
+        customers: parsed && parsed.customers ? parsed.customers.length : null
+      };
+    })()`);
+    assertEq(persisted.products, 12, '首次写操作后 localStorage 应持久化 products');
+    assertEq(persisted.customers, 1, '首次写操作后客户数据保持');
+    const errors = page.errors();
+    assert(errors.length === 0, '旧数据升级过程不应产生错误', errors.slice(0, 4));
   });
 }
 
@@ -1811,6 +2344,7 @@ async function groupS() {
 python = findPython();
 console.log('客户通 CustomerCRM — 端到端验收（E2E）');
 console.log('项目根：' + ROOT);
+console.log('被测版本：CONTRACT v1.1（13 字段 / 表格 15 列 / Excel 21+11 列 / 产品库 / 扇形图 / 宽版台账）');
 console.log('Node：' + process.version + ' / ' + process.platform + ' / ' + os.release());
 console.log('截图目录：' + SHOTS);
 console.log('openpyxl：' + (python ? python.version + ' @ ' + python.command : '不可用 → 降级为 Node ZIP/XML 断言'));
@@ -1846,6 +2380,7 @@ try {
   await groupA(page);
   await groupB(page);
   await groupC(page);
+  await groupP(page);
   await groupD(page);
   await groupE(page);
   await groupF(page);

@@ -54,6 +54,22 @@ try {
 
   await page.screenshot(path.join(SHOTS, 'dashboard-1440.png'));
 
+  // 国家分布扇形图（仪表盘）
+  const pie = await page.evaluate(`(() => {
+    const box = document.querySelector('[data-testid="country-pie"]');
+    if (!box) return null;
+    return {
+      slices: box.querySelectorAll('.pie-slice').length,
+      legend: box.querySelectorAll('.pie-legend .legend-item').length,
+      pct: Array.from(box.querySelectorAll('.legend-pct')).reduce((acc, el) => acc + parseInt(el.textContent, 10), 0),
+      total: box.querySelector('.pie-total') ? box.querySelector('.pie-total').textContent : ''
+    };
+  })()`);
+  check('仪表盘扇形图渲染', !!pie && pie.slices > 0, JSON.stringify(pie));
+  check('扇形图图例与切片数量一致', !!pie && pie.slices === pie.legend, JSON.stringify(pie));
+  check('扇形图百分比合计 100', !!pie && pie.pct === 100, pie && pie.pct);
+  check('扇形图中心总数正确', !!pie && pie.total === String(api.stats.total), pie && pie.total);
+
   // 客户台账
   await page.appNavigate('#/customers');
   await page.waitUntil('document.querySelectorAll("tr.row").length > 0', { timeout: 10000 });
@@ -63,7 +79,7 @@ try {
     const row = document.querySelector('tr.row');
     return row ? row.querySelectorAll('td').length : 0;
   })()`);
-  check('表格列数 14', cells === 14, cells);
+  check('表格列数 15', cells === 15, cells);
   await page.screenshot(path.join(SHOTS, 'customers-1440.png'));
 
   // 展开行详情
@@ -98,17 +114,45 @@ try {
   const nameValue = await page.evaluate(`(() => { const el = document.querySelector('#customer-form [name="customerName"]'); return el ? el.value : 'x'; })()`);
   check('新建客户必填校验', nameValue === '' ? !!formError : true, `formError=${formError}`);
 
-  // 填表并保存
+  // 填表并保存（v1.1：产品库下拉 + 主营业务）
   await page.fill('customerName', '烟测客户 Alpha');
-  await page.fill('product', '测试产品 X1');
   await page.fill('country', '德国');
   await page.fill('companyName', 'Smoke Test GmbH');
+  await page.fill('mainBusiness', '户外用品进口分销');
   await page.fill('coreReason', '价格谈判中');
+  // 从产品库选择「不锈钢保温杯 / 500ml」
+  await page.evaluate(`(() => {
+    const form = document.getElementById('customer-form');
+    const nameSelect = form.querySelector('[name="productName"]');
+    const target = Array.from(nameSelect.options).find(o => o.value === '不锈钢保温杯');
+    nameSelect.value = target ? '不锈钢保温杯' : nameSelect.options[1].value;
+    nameSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    const modelSelect = form.querySelector('[name="productModel"]');
+    if (modelSelect && modelSelect.options.length > 1) modelSelect.value = modelSelect.options[1].value;
+  })()`);
+  const pickerInfo = await page.evaluate(`(() => {
+    const form = document.getElementById('customer-form');
+    const nameSelect = form.querySelector('[name="productName"]');
+    const modelSelect = form.querySelector('[name="productModel"]');
+    return {
+      name: nameSelect ? nameSelect.value : '',
+      models: modelSelect ? modelSelect.options.length : 0,
+      model: modelSelect ? modelSelect.value : ''
+    };
+  })()`);
+  check('产品库名称下拉可用', pickerInfo.name === '不锈钢保温杯', JSON.stringify(pickerInfo));
+  check('型号下拉已联动', pickerInfo.models >= 2, JSON.stringify(pickerInfo));
   await page.click('[data-testid="btn-save-customer"]');
   await sleep(250);
   const afterSave = await page.evaluate(`(() => ({ total: window.CustomerCRM.store.list().length, modal: !!document.querySelector('#customer-form') }))()`);
   check('保存后客户数 +1', afterSave.total === 13, afterSave.total);
   check('保存后弹窗关闭', afterSave.modal === false);
+  const savedRec = await page.evaluate(`(() => {
+    const rec = window.CustomerCRM.store.list().find(r => r.customerName === '烟测客户 Alpha');
+    return rec ? { product: rec.product, model: rec.productModel, business: rec.mainBusiness } : null;
+  })()`);
+  check('咨询产品/型号已保存', !!savedRec && savedRec.product === '不锈钢保温杯' && !!savedRec.model, JSON.stringify(savedRec));
+  check('主营业务已保存', !!savedRec && savedRec.business === '户外用品进口分销', JSON.stringify(savedRec));
   const rowVisible = await page.evaluate(`(() => Array.from(document.querySelectorAll('tr.row td')).some(td => td.textContent.includes('烟测客户 Alpha')))()`);
   check('保存后表格出现新客户', rowVisible);
 
@@ -131,7 +175,7 @@ try {
       return { items, filled: document.querySelectorAll('.recog-item--filled').length, hasResult: !!document.querySelector('.recog-list') };
     })()`);
     await sleep(200);
-    check('识别结果 11 项', result.items === 11, result.items);
+    check('识别结果 13 项', result.items === 13, result.items);
     check('识别命中 ≥ 6 项', result.filled >= 6, result.filled);
     await page.screenshot(path.join(SHOTS, 'recognize-result-1440.png'));
 

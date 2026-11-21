@@ -163,15 +163,34 @@
     }
   ];
 
+  /* 示例客户的「产品名称 / 型号 / 主营业务」（与产品库预置数据对应） */
+  var DEMO_EXTRA = {
+    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销' },
+    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销' },
+    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售' },
+    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售' },
+    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商' },
+    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发' },
+    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销' },
+    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口' },
+    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购' },
+    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商' },
+    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁' },
+    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商' }
+  };
+
   function buildDemoRecords() {
     return DEMO_BLUEPRINT.map(function (item) {
+      var extra = DEMO_EXTRA[item.customerName] || {};
       var rec = schema.normalize({
         id: schema.uid('c_'),
         firstInquiryAt: ago(item.firstInquiryAt),
         customerName: item.customerName,
-        product: item.product,
+        product: extra.product || item.product,
+        productModel: extra.productModel || item.productModel || '',
         country: item.country,
         companyName: item.companyName,
+        mainBusiness: extra.mainBusiness || item.mainBusiness || '',
         foundedAt: item.foundedAt,
         teamSize: item.teamSize,
         annualRevenue: item.annualRevenue,
@@ -197,8 +216,28 @@
       version: PAYLOAD_VERSION,
       savedAt: schema.nowISO(),
       settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
-      customers: []
+      customers: [],
+      products: []
     };
+  }
+
+  function normalizeProduct(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var name = String(raw.name || raw.product || raw.productName || '').trim().slice(0, 120);
+    var model = String(raw.model || raw.productModel || '').trim().slice(0, 80);
+    if (!name) return null;
+    return {
+      id: String(raw.id || '').trim() || schema.uid('p_'),
+      name: name,
+      model: model,
+      createdAt: String(raw.createdAt || '').trim() || schema.nowISO()
+    };
+  }
+
+  function defaultProducts() {
+    return schema.DEFAULT_PRODUCTS.map(function (item) {
+      return normalizeProduct({ name: item.name, model: item.model });
+    });
   }
 
   function normalizePayload(raw) {
@@ -213,6 +252,12 @@
     }
     var list = Array.isArray(raw.customers) ? raw.customers : Array.isArray(raw.records) ? raw.records : [];
     payload.customers = list.map(function (item) { return schema.normalize(item); }).filter(Boolean);
+    if (Array.isArray(raw.products)) {
+      payload.products = raw.products.map(normalizeProduct).filter(Boolean);
+    } else {
+      /* 从 v1.0 升级：没有产品库字段时写入预置产品 */
+      payload.products = defaultProducts();
+    }
     payload.savedAt = typeof raw.savedAt === 'string' ? raw.savedAt : schema.nowISO();
     return payload;
   }
@@ -230,9 +275,13 @@
     if (isFirstRun && payload.customers.length === 0) {
       payload.customers = buildDemoRecords();
       payload.settings.seeded = true;
+      payload.products = defaultProducts();
       payload.savedAt = schema.nowISO();
       var ok = core.storage.set(KEY, payload);
       storageOk = ok;
+    }
+    if (!payload.products.length && payload.customers.length === 0 && !payload.settings.seeded) {
+      payload.products = defaultProducts();
     }
     state = payload;
     return state;
@@ -340,6 +389,79 @@
 
   function isEmpty() {
     return load().customers.length === 0;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 3.2 产品库（咨询产品预录入：产品名称 + 型号）                          */
+  /* ------------------------------------------------------------------ */
+
+  function listProducts() {
+    return load().products.slice().sort(function (a, b) {
+      var byName = String(a.name).localeCompare(String(b.name), 'zh-Hans-CN');
+      if (byName !== 0) return byName;
+      return String(a.model || '').localeCompare(String(b.model || ''), 'zh-Hans-CN');
+    });
+  }
+
+  function productNames() {
+    var seen = {};
+    var names = [];
+    listProducts().forEach(function (item) {
+      if (seen[item.name]) return;
+      seen[item.name] = true;
+      names.push(item.name);
+    });
+    return names;
+  }
+
+  function productModels(name) {
+    var target = String(name || '').trim();
+    if (!target) return [];
+    return listProducts().filter(function (item) {
+      return item.name === target && item.model;
+    }).map(function (item) { return item.model; });
+  }
+
+  /** 新增产品；name+model 已存在时直接返回已有项（不重复写入） */
+  function addProduct(raw) {
+    var payload = load();
+    var product = normalizeProduct(raw);
+    if (!product) return null;
+    var exists = payload.products.filter(function (item) {
+      return item.name === product.name && String(item.model || '') === String(product.model || '');
+    })[0];
+    if (exists) return exists;
+    payload.products.push(product);
+    persist('product-add');
+    return product;
+  }
+
+  function removeProduct(id) {
+    var payload = load();
+    var before = payload.products.length;
+    payload.products = payload.products.filter(function (item) { return item.id !== id; });
+    if (payload.products.length === before) return false;
+    persist('product-remove');
+    return true;
+  }
+
+  function seedProducts(force) {
+    var payload = load();
+    if (!force && payload.products.length) return payload.products.length;
+    payload.products = defaultProducts();
+    persist('product-seed');
+    return payload.products.length;
+  }
+
+  /** 产品库使用热度：{ '名称|型号': 客户数 } */
+  function productUsage() {
+    var usage = {};
+    load().customers.forEach(function (rec) {
+      var key = String(rec.product || '').trim() + '|' + String(rec.productModel || '').trim();
+      if (!String(rec.product || '').trim()) return;
+      usage[key] = (usage[key] || 0) + 1;
+    });
+    return usage;
   }
 
   /* ------------------------------------------------------------------ */
@@ -460,13 +582,14 @@
       version: schema.VERSION,
       exportedAt: schema.nowISO(),
       settings: payload.settings,
+      products: payload.products,
       customers: payload.customers
     }, null, 2);
   }
 
   /**
    * 导入 JSON 备份。mode: 'merge'（默认，同 id 覆盖）| 'replace'（清空后导入）
-   * 返回 { ok, imported, skipped, total, mode }
+   * 返回 { ok, imported, skipped, total, mode, products }
    */
   function importJSON(text, mode) {
     var parsed;
@@ -492,13 +615,34 @@
       else payload.customers[existingIndex] = rec;
       imported += 1;
     });
+    var importedProducts = 0;
+    if (Array.isArray(parsed.products)) {
+      if (importMode === 'replace') payload.products = [];
+      parsed.products.forEach(function (raw) {
+        var product = normalizeProduct(raw);
+        if (!product) return;
+        var dup = payload.products.some(function (item) {
+          return item.name === product.name && String(item.model || '') === String(product.model || '');
+        });
+        if (dup) return;
+        payload.products.push(product);
+        importedProducts += 1;
+      });
+    }
     if (parsed.settings && importMode === 'merge') {
       payload.settings.warnDays = finiteOr(parsed.settings.warnDays, payload.settings.warnDays);
       payload.settings.staleDays = finiteOr(parsed.settings.staleDays, payload.settings.staleDays);
     }
     payload.settings.seeded = true;
     persist('import');
-    return { ok: true, imported: imported, skipped: skipped, total: payload.customers.length, mode: importMode };
+    return {
+      ok: true,
+      imported: imported,
+      skipped: skipped,
+      total: payload.customers.length,
+      mode: importMode,
+      products: importedProducts
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -532,6 +676,14 @@
     clear: clear,
     seedDemo: seedDemo,
     isEmpty: isEmpty,
+
+    listProducts: listProducts,
+    productNames: productNames,
+    productModels: productModels,
+    addProduct: addProduct,
+    removeProduct: removeProduct,
+    seedProducts: seedProducts,
+    productUsage: productUsage,
 
     settings: settings,
     updateSettings: updateSettings,

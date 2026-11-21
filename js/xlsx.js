@@ -700,16 +700,19 @@
   }
 
   /* ================================================================== */
-  /* 6. 客户台账导出：两个工作表、19 + 10 列                              */
+  /* 6. 客户台账导出：两个工作表、21 + 11 列（v1.1）                       */
   /* ================================================================== */
 
+  /* v1.1：客户总表 21 列（新增「产品型号」「主营业务」） */
   var TOTAL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
-    { header: '咨询产品', width: 28 },
+    { header: '咨询产品', width: 26 },
+    { header: '产品型号', width: 16 },
     { header: '国家', width: 14, align: 'center' },
     { header: '公司名', width: 30 },
+    { header: '主营业务', width: 22 },
     { header: '成立时间', width: 14, align: 'center' },
     { header: '团队规模', width: 16 },
     { header: '年营收', width: 18 },
@@ -725,11 +728,13 @@
     { header: '最近跟进③内容', width: 46, wrap: true }
   ];
 
+  /* v1.1：跟进明细 11 列（新增「主营业务」） */
   var DETAIL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
     { header: '公司名', width: 30 },
+    { header: '主营业务', width: 22 },
     { header: '国家', width: 14, align: 'center' },
     { header: '跟进日期', width: 15, align: 'center' },
     { header: '距今天数', width: 12, align: 'center', numFmt: '0' },
@@ -814,8 +819,10 @@
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
       product: asText(rec.product),
+      productModel: asText(rec.productModel),
       country: asText(rec.country),
       companyName: asText(rec.companyName),
+      mainBusiness: asText(rec.mainBusiness),
       foundedAt: asText(rec.foundedAt),
       teamSize: asText(rec.teamSize),
       annualRevenue: asText(rec.annualRevenue),
@@ -851,8 +858,10 @@
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
       product: asText(rec.product),
+      productModel: asText(rec.productModel),
       country: asText(rec.country),
       companyName: asText(rec.companyName),
+      mainBusiness: asText(rec.mainBusiness),
       foundedAt: asText(rec.foundedAt),
       teamSize: asText(rec.teamSize),
       annualRevenue: asText(rec.annualRevenue),
@@ -949,8 +958,10 @@
         asText(item.firstInquiryAt),
         asText(item.customerName),
         asText(item.product),
+        asText(item.productModel),
         asText(item.country),
         asText(item.companyName),
+        asText(item.mainBusiness),
         asText(item.foundedAt),
         asText(item.teamSize),
         asText(item.annualRevenue),
@@ -972,6 +983,7 @@
           asText(item.firstInquiryAt),
           asText(item.customerName),
           asText(item.companyName),
+          asText(item.mainBusiness),
           asText(item.country),
           fu.date,
           fu.daysAgo === null || fu.daysAgo === undefined ? '' : Number(fu.daysAgo),

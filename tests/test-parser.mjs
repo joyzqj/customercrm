@@ -15,8 +15,8 @@ const schema = require('../js/schema.js');
 const TODAY = '2026-11-21';
 const OPTS = { today: TODAY };
 const FIELD_KEYS = [
-  'firstInquiryAt', 'customerName', 'product', 'country', 'companyName',
-  'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+  'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
+  'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
 ];
 
 /* 契约 §5.3 的三段原文（与 SAMPLE_TEXTS 必须完全一致） */
@@ -57,7 +57,7 @@ const resultC = parser.recognize(parser.SAMPLE_TEXTS[2].text, OPTS);
 /* ==================================================================== */
 
 test('接口：VERSION / recognize / parseDate / SAMPLE_TEXTS 齐备', () => {
-  assert.equal(parser.VERSION, '1.0.0');
+  assert.equal(parser.VERSION, '1.1.0');
   assert.equal(typeof parser.recognize, 'function');
   assert.equal(typeof parser.parseDate, 'function');
   assert.ok(Array.isArray(parser.SAMPLE_TEXTS));
@@ -71,9 +71,9 @@ test('样例：标签依次为 中文询盘 / 英文询盘 / 展会名片速记�
   assert.equal(parser.SAMPLE_TEXTS[2].text, TEXT_C);
 });
 
-test('结果结构：11 个字段 key 与 CRM_SCHEMA.FIELD_KEYS 完全一致', () => {
+test('结果结构：13 个字段 key 与 CRM_SCHEMA.FIELD_KEYS 完全一致', () => {
   deepEqual(FIELD_KEYS, schema.FIELD_KEYS);
-  assert.equal(schema.FIELD_KEYS.length, 11);
+  assert.equal(schema.FIELD_KEYS.length, 13);
   [resultA, resultB, resultC].forEach((r) => {
     Object.keys(r.fields).forEach((key) => {
       assert.ok(schema.FIELD_KEYS.indexOf(key) !== -1, '未知字段 key: ' + key);
@@ -119,6 +119,16 @@ test('A：咨询产品含「保温杯」', () => {
   assert.ok((resultA.fields.product || '').indexOf('保温杯') !== -1, 'product=' + resultA.fields.product);
 });
 
+test('A：产品型号含 500ml', () => {
+  assert.ok((resultA.fields.productModel || '').indexOf('500ml') !== -1, 'productModel=' + resultA.fields.productModel);
+});
+
+test('A：主营业务含「户外用品」且 ≤30 字', () => {
+  const v = resultA.fields.mainBusiness || '';
+  assert.ok(v.indexOf('户外用品') !== -1, 'mainBusiness=' + v);
+  assert.ok(v.length <= 30, 'mainBusiness 超过 30 字：' + v.length);
+});
+
 test('A：跟进状态 = 已报价，成交状态 = 未成交', () => {
   assert.equal(resultA.fields.followupStatus, '已报价');
   assert.equal(resultA.fields.dealStatus, '未成交');
@@ -135,9 +145,9 @@ test('A：跟进记录首条 2026-11-18，至少 2 条', () => {
   assert.equal(resultA.followups[0].date, '2026-11-18');
 });
 
-test('A：11 个字段全部命中，missing 为空，ok=true', () => {
+test('A：13 个字段全部命中，missing 为空，ok=true', () => {
   assert.equal(resultA.ok, true);
-  assert.equal(resultA.filled, 11);
+  assert.equal(resultA.filled, 13);
   deepEqual(resultA.missing, []);
 });
 
@@ -172,6 +182,12 @@ test('B：跟进记录含 2026-11-20', () => {
   assert.ok(dates.indexOf('2026-11-20') !== -1, 'followups=' + JSON.stringify(dates));
 });
 
+test('B：产品型号含 500ml；文本无主营描述时不输出 mainBusiness', () => {
+  assert.ok((resultB.fields.productModel || '').indexOf('500ml') !== -1, 'productModel=' + resultB.fields.productModel);
+  assert.equal(resultB.fields.mainBusiness, undefined);
+  assert.ok(resultB.missing.indexOf('mainBusiness') !== -1);
+});
+
 /* ==================================================================== */
 /* 4. 契约样例 C（展会名片速记）                                         */
 /* ==================================================================== */
@@ -200,6 +216,12 @@ test('C：产品含「陶瓷餐具」，跟进状态 ∈ {已回复, 寄样中}'
     'followupStatus=' + resultC.fields.followupStatus);
 });
 
+test('C：主营业务含「家居用品」；产品无规格时不输出 productModel', () => {
+  assert.ok((resultC.fields.mainBusiness || '').indexOf('家居用品') !== -1, 'mainBusiness=' + resultC.fields.mainBusiness);
+  assert.equal(resultC.fields.productModel, undefined);
+  assert.ok(resultC.missing.indexOf('productModel') !== -1);
+});
+
 test('C：没有明确成交线索时不输出 dealStatus', () => {
   assert.equal(resultC.fields.dealStatus, undefined);
 });
@@ -217,7 +239,7 @@ test('空文本：ok=false、warning code=empty、标准提示文案', () => {
   assert.equal(r.warnings[0].code, 'empty');
   assert.equal(r.warnings[0].message, '请粘贴一段询盘文本');
   assert.equal(r.filled, 0);
-  assert.equal(r.missing.length, 11);
+  assert.equal(r.missing.length, 13);
 });
 
 test('空文本：空白/换行/null/undefined 均不抛异常', () => {
@@ -311,6 +333,108 @@ test('全英文新询盘：默认跟进状态 = 新询盘，不输出 dealStatus
 });
 
 /* ==================================================================== */
+/* 5b. v1.1 新增字段：主营业务 mainBusiness / 产品型号 productModel       */
+/* ==================================================================== */
+
+test('mainBusiness：主营户外用品（中文标签规则）', () => {
+  const r = parser.recognize('他所在的 Braun Trading GmbH 成立于 1998 年，主营户外用品，团队 30 人。', OPTS);
+  assert.ok((r.fields.mainBusiness || '').indexOf('户外用品') !== -1, 'mainBusiness=' + r.fields.mainBusiness);
+});
+
+test('mainBusiness：做家居用品进口（贸易动词规则）', () => {
+  const r = parser.recognize('客户公司做家居用品进口，年采购额约 200 万美元。', OPTS);
+  assert.ok((r.fields.mainBusiness || '').indexOf('家居用品') !== -1, 'mainBusiness=' + r.fields.mainBusiness);
+  assert.ok((r.fields.mainBusiness || '').indexOf('进口') !== -1, 'mainBusiness=' + r.fields.mainBusiness);
+});
+
+test('mainBusiness：是一家…进口商（身份名词规则）', () => {
+  const r = parser.recognize('客户是一家户外用品进口商，主要在德国市场销售。', OPTS);
+  assert.ok((r.fields.mainBusiness || '').indexOf('户外用品') !== -1, 'mainBusiness=' + r.fields.mainBusiness);
+});
+
+test('mainBusiness：英文 distributor of / specialized in', () => {
+  const r1 = parser.recognize('We are a distributor of outdoor products and camping gear. Please quote for 500ml vacuum flasks.', OPTS);
+  assert.ok((r1.fields.mainBusiness || '').indexOf('outdoor products') !== -1, 'mainBusiness=' + r1.fields.mainBusiness);
+  assert.ok((r1.fields.mainBusiness || '').length <= 30, 'mainBusiness 超过 30 字：' + r1.fields.mainBusiness);
+  const r2 = parser.recognize('Nordic Living AB is specialized in home decorations and kitchenware, please quote 500ml glass jars.', OPTS);
+  assert.ok((r2.fields.mainBusiness || '').indexOf('home decorations') !== -1, 'mainBusiness=' + r2.fields.mainBusiness);
+  assert.equal(r2.fields.mainBusiness, 'home decorations', '30 字截断后不应留下悬空 and：' + r2.fields.mainBusiness);
+});
+
+test('mainBusiness：输出 ≤30 字', () => {
+  const r = parser.recognize('客户公司主要从事家居用品、厨房用品、户外用品、五金工具、电子产品、玩具文具的批发与分销业务。', OPTS);
+  const v = r.fields.mainBusiness || '';
+  assert.ok(v.length > 0 && v.length <= 30, 'mainBusiness 长度 ' + v.length + '：' + v);
+});
+
+test('mainBusiness：无主营描述时不输出', () => {
+  const r = parser.recognize('Michael Braun 询问不锈钢保温杯价格，需要 500ml 规格。', OPTS);
+  assert.equal(r.fields.mainBusiness, undefined);
+  assert.ok(r.missing.indexOf('mainBusiness') !== -1);
+});
+
+test('mainBusiness：干扰句（我司/同行/竞争对手）不误判', () => {
+  const r1 = parser.recognize('我们公司主营咖啡机出口。客户是家居用品分销商，询问陶瓷餐具价格。', OPTS);
+  assert.ok((r1.fields.mainBusiness || '').indexOf('家居用品') !== -1, 'mainBusiness=' + r1.fields.mainBusiness);
+  assert.ok((r1.fields.mainBusiness || '').indexOf('咖啡机') === -1, '不应采纳我司业务：' + r1.fields.mainBusiness);
+  const r2 = parser.recognize('竞争对手主营同类产品，客户主营户外用品，咨询保温杯。', OPTS);
+  assert.ok((r2.fields.mainBusiness || '').indexOf('户外用品') !== -1, 'mainBusiness=' + r2.fields.mainBusiness);
+});
+
+test('mainBusiness 边界：不吞公司名与咨询产品', () => {
+  const r = parser.recognize('Braun Trading GmbH 主营户外用品，客户咨询的是保温杯。', OPTS);
+  assert.equal(r.fields.mainBusiness, '户外用品');
+  assert.equal(r.fields.companyName, 'Braun Trading GmbH');
+  assert.equal(r.fields.product, '保温杯');
+});
+
+test('productModel：16 件套', () => {
+  const r = parser.recognize('客户咨询 16 件套陶瓷餐具套装，需要报价。', OPTS);
+  assert.equal(r.fields.productModel, '16 件套');
+});
+
+test('productModel：500ml 与 12 pcs 并存', () => {
+  const r = parser.recognize('客户需要采购 500ml 不锈钢保温杯 12 pcs，请报价。', OPTS);
+  const v = r.fields.productModel || '';
+  assert.ok(v.indexOf('500ml') !== -1, 'productModel=' + v);
+  assert.ok(v.indexOf('12 pcs') !== -1, 'productModel=' + v);
+});
+
+test('productModel：750ml / 1.2L 容量规格', () => {
+  const r1 = parser.recognize('客户需要 750ml 不锈钢保温杯，请报价。', OPTS);
+  assert.equal(r1.fields.productModel, '750ml');
+  const r2 = parser.recognize('客户需要 1.2L 大容量保温壶，请报价。', OPTS);
+  assert.equal(r2.fields.productModel, '1.2L');
+  const r3 = parser.recognize('Please quote 1.2L glass jars.', OPTS);
+  assert.equal(r3.fields.productModel, '1.2L');
+});
+
+test('productModel：3-piece set', () => {
+  const r = parser.recognize('客户对 3-piece set 陶瓷餐具感兴趣。', OPTS);
+  assert.equal(r.fields.productModel, '3-piece set');
+});
+
+test('productModel：无型号时不输出', () => {
+  const r = parser.recognize('客户对我们的陶瓷餐具套装感兴趣。', OPTS);
+  assert.equal(r.fields.productModel, undefined);
+  assert.ok(r.missing.indexOf('productModel') !== -1);
+});
+
+test('productModel：显式「型号：XXX」标注兜底', () => {
+  const r = parser.recognize('产品：陶瓷餐具，型号：TC-500，请报价。', OPTS);
+  assert.equal(r.fields.productModel, 'TC-500');
+});
+
+test('v1.1：filled + missing.length = 13，新字段带 evidence', () => {
+  [resultA, resultB, resultC].forEach((r) => {
+    assert.equal(r.filled + r.missing.length, 13);
+  });
+  assert.ok(resultA.evidence.productModel && resultA.evidence.mainBusiness);
+  assert.ok(resultB.evidence.productModel);
+  assert.ok(resultC.evidence.mainBusiness);
+});
+
+/* ==================================================================== */
 /* 6. 结果质量约束                                                       */
 /* ==================================================================== */
 
@@ -328,7 +452,8 @@ test('只输出非空字段；filled/missing 与 fields 一致', () => {
       assert.ok(r.fields[k].trim().length > 0, '字段 ' + k + ' 为空串');
     });
     assert.equal(r.filled, keys.length);
-    assert.equal(r.missing.length, 11 - keys.length);
+    assert.equal(r.missing.length, FIELD_KEYS.length - keys.length);
+    assert.equal(r.filled + r.missing.length, FIELD_KEYS.length);
     keys.forEach((k) => { assert.ok(r.missing.indexOf(k) === -1); });
     r.missing.forEach((k) => { assert.ok(FIELD_KEYS.indexOf(k) !== -1); });
   });
@@ -425,7 +550,7 @@ test('UMD：浏览器式加载（无 require、有 window.CRM_SCHEMA）挂到 wi
   assert.equal(typeof sandbox.CrmParser.recognize, 'function');
   assert.ok(sandbox.CrmParser.SAMPLE_TEXTS.length >= 3);
   const r = sandbox.CrmParser.recognize(TEXT_A, OPTS);
-  assert.equal(r.filled, 11);
+  assert.equal(r.filled, 13);
   assert.equal(r.fields.country, '德国');
 });
 

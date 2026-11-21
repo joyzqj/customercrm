@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 客户通 CustomerCRM 单文件版 · 构建于 2026-11-22 00:25 · 内联资源 7 个：css/app.css, js/schema.js, js/core.js, js/parser.js, js/xlsx.js, js/store.js, js/app.js -->
+<!-- 客户通 CustomerCRM 单文件版 · 构建于 2026-11-22 01:13 · 内联资源 7 个：css/app.css, js/schema.js, js/core.js, js/parser.js, js/xlsx.js, js/store.js, js/app.js -->
 
 <html lang="zh-CN">
 <head>
@@ -67,6 +67,7 @@
   /* 尺寸 */
   --sidebar-w: 248px;
   --content-max: 1280px;
+  --content-max-wide: 1720px;
   --topbar-h: 62px;
 
   /* 字体 */
@@ -459,6 +460,17 @@ table { border-collapse: separate; border-spacing: 0; }
   min-width: 0;
 }
 
+/* v1.1 客户台账宽版：让表格页明显比其他页占屏更大 */
+@media (min-width: 1025px) {
+  body.route-customers .view { padding: 20px 20px 56px; }
+  body.route-customers .view-inner { max-width: var(--content-max-wide); }
+  body.route-customers .topbar {
+    max-width: var(--content-max-wide);
+    padding: 0 20px;
+  }
+  body.route-customers .table-wrap { max-height: calc(100vh - 236px); }
+}
+
 .page { min-width: 0; }
 
 .page-head {
@@ -507,6 +519,28 @@ table { border-collapse: separate; border-spacing: 0; }
 }
 .page-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .page-grid > * { min-width: 0; }
+
+/* 仪表盘第一行：扇形图卡与右侧「跟进状态分布」卡等高，扇形图内容垂直居中 */
+.page-grid--2:has(.card--pie) { align-items: stretch; }
+.card--pie {
+  display: flex;
+  flex-direction: column;
+}
+.card--pie .card-head { flex: none; }
+.card--pie .card-body {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card--pie .pie-chart {
+  width: 100%;
+  grid-template-columns: 228px minmax(0, 1fr);
+}
+.card--pie .pie-figure {
+  width: 220px;
+  height: 220px;
+}
 
 .section-title {
   display: flex;
@@ -939,6 +973,131 @@ table { border-collapse: separate; border-spacing: 0; }
 }
 
 /* ==================================================================
+   8b. 仪表盘：SVG 环形扇形图（v1.1）
+   ================================================================== */
+
+.card--pie .card-body { padding: 18px 20px; }
+
+.pie-chart {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px 26px;
+  min-width: 0;
+}
+.pie-figure {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  flex: none;
+  margin: 0 auto;
+}
+.pie-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.pie-track { stroke: #eef1f5; }
+.pie-slice {
+  stroke: var(--surface);
+  stroke-width: 2;
+  stroke-opacity: .9;
+  transition: filter .15s ease, opacity .15s ease;
+  cursor: default;
+}
+.pie-slice:hover {
+  filter: brightness(1.09) saturate(1.06);
+  opacity: .96;
+}
+.pie-slice--other { opacity: .92; }
+
+.pie-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: none;
+  text-align: center;
+}
+.pie-total {
+  font-family: var(--font-num);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.pie-total-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 46px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  transition: background .12s ease;
+}
+.legend-item:hover { background: #f7fafb; }
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--brand-600);
+}
+.legend-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.legend-name .flag { margin-top: -1px; }
+.legend-value {
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.legend-pct {
+  font-family: var(--font-num);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
    9. 仪表盘：纯 CSS 条形图
    ================================================================== */
 
@@ -1310,7 +1469,7 @@ table { border-collapse: separate; border-spacing: 0; }
 
 /* 客户台账：固定列宽 + 不换行，横向滚动交给 .table-wrap */
 .data-table--customers {
-  min-width: 1425px;
+  min-width: 1557px;
   table-layout: fixed;
   font-size: 12.5px;
 }
@@ -1345,9 +1504,9 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table thead th[data-col] { white-space: nowrap; }
 .data-table thead th.col-actions { text-align: right; }
 
-/* 列宽：全列合计 1425；<=1599 隐藏「成立时间/团队规模/年营收」后合计 1182。
-   1440 首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称 / 咨询产品 / 国家 / 公司名 / 跟进状态 / 是否成交，
-   「核心原因」横向滚动查看，操作列固定右侧。 */
+/* 列宽（v1.1，15 列）：全列合计 1557；<=1599 隐藏「成立时间/团队规模/年营收」后合计 1328。
+   1440 宽版首屏完整可见：展开 / 首次询盘 / 距上次跟进 / 客户名称 / 咨询产品（含型号）/ 国家 / 公司名 /
+   主营业务 / 跟进状态 / 是否成交，「核心原因」横向滚动查看，操作列固定右侧。 */
 .data-table--customers th[data-col="firstInquiryAt"],
 .data-table--customers td[data-col="firstInquiryAt"] { width: 94px; }
 .data-table--customers th[data-col="age"],
@@ -1355,11 +1514,13 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table--customers th[data-col="customerName"],
 .data-table--customers td[data-col="customerName"] { width: 128px; }
 .data-table--customers th[data-col="product"],
-.data-table--customers td[data-col="product"] { width: 134px; }
+.data-table--customers td[data-col="product"] { width: 150px; }
 .data-table--customers th[data-col="country"],
 .data-table--customers td[data-col="country"] { width: 96px; }
 .data-table--customers th[data-col="companyName"],
 .data-table--customers td[data-col="companyName"] { width: 128px; }
+.data-table--customers th[data-col="mainBusiness"],
+.data-table--customers td[data-col="mainBusiness"] { width: 120px; }
 .data-table--customers th[data-col="foundedAt"],
 .data-table--customers td[data-col="foundedAt"] { width: 61px; }
 .data-table--customers th[data-col="teamSize"],
@@ -1371,7 +1532,7 @@ table { border-collapse: separate; border-spacing: 0; }
 .data-table--customers th[data-col="dealStatus"],
 .data-table--customers td[data-col="dealStatus"] { width: 72px; }
 .data-table--customers th[data-col="coreReason"],
-.data-table--customers td[data-col="coreReason"] { width: 170px; }
+.data-table--customers td[data-col="coreReason"] { width: 180px; }
 
 .col-expand {
   width: 34px;
@@ -1519,6 +1680,38 @@ table { border-collapse: separate; border-spacing: 0; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* v1.1 咨询产品 / 型号：产品名 + 型号小字两行 */
+.cell-product {
+  display: table-cell;
+  line-height: 1.35;
+}
+.cell-strong-inline {
+  display: block;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-product .cell-sub {
+  display: block;
+  min-width: 0;
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-sub {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.data-table--customers td.cell-product { vertical-align: middle; }
 .cell-num {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
@@ -1747,6 +1940,15 @@ table { border-collapse: separate; border-spacing: 0; }
   min-width: 0;
 }
 .field--full { grid-column: 1 / -1; }
+/* 分裂字段：同一 field 内并排两个控件 */
+.field--split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  min-width: 0;
+}
+.field--split .field { min-width: 0; }
+.field--split .field--full { grid-column: 1 / -1; }
 .field-label {
   display: flex;
   align-items: center;
@@ -2024,6 +2226,33 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: .85; }
 }
 .input-group > .btn,
 .input-group > .icon-btn { flex: none; height: 40px; }
+
+/* v1.1 产品选择器：产品名称 / 型号联动 + 自定义输入 + 加入产品库 */
+.product-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  align-items: start;
+  min-width: 0;
+}
+.product-picker > .select,
+.product-picker > .input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+}
+.product-picker-name,
+.product-picker-model,
+.product-picker .product-custom { min-width: 0; }
+.product-add-btn {
+  justify-self: start;
+  align-self: center;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .product-picker { grid-template-columns: minmax(0, 1fr); }
+  .product-add-btn { width: 100%; }
+}
 
 /* ==================================================================
    15. 模态
@@ -2619,6 +2848,107 @@ body.is-modal-open { overflow: hidden; }
 }
 .data-actions .btn { flex: none; }
 
+/* ==================================================================
+   18b. 产品库（设置页 v1.1）
+   ================================================================== */
+
+.product-library .card-body { padding-top: 16px; }
+.product-form { min-width: 0; }
+.product-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.product-form-row .input { min-width: 0; }
+.product-table {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.product-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr) 32px;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background-color .12s ease;
+}
+.product-row:last-child { border-bottom: 0; }
+.product-row:hover { background: #f8fbfb; }
+.product-name {
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-model {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f2f4f7;
+  color: var(--ink-3);
+  font-family: var(--font-num);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.product-usage {
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.product-remove { justify-self: end; }
+.product-empty {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed #d8dee6;
+  border-radius: 10px;
+  background: #fcfcfd;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .product-form-row { grid-template-columns: minmax(0, 1fr); }
+  .product-form-row .btn { width: 100%; }
+  .product-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name remove"
+      "model usage";
+    gap: 4px 10px;
+    padding: 10px 12px;
+  }
+  .product-name { grid-area: name; }
+  .product-model { grid-area: model; }
+  .product-usage {
+    grid-area: usage;
+    text-align: right;
+  }
+  .product-remove { grid-area: remove; }
+}
+
 /* 键值信息列表 */
 .info-list {
   display: flex;
@@ -2888,24 +3218,19 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td[data-col="teamSize"],
   .data-table--customers th[data-col="annualRevenue"],
   .data-table--customers td[data-col="annualRevenue"] { display: none; }
-  .data-table--customers { min-width: 1182px; }
+  .data-table--customers { min-width: 1328px; }
 }
 
-/* 超宽屏：完整 14 列，展开行无需重复 meta */
+/* 超宽屏：完整 15 列，展开行无需重复 meta */
 @media (min-width: 1600px) {
   .row-detail-meta { display: none; }
 }
 
-/* 22.1b 1024~1279：收窄页面留白；产品/公司名略收窄，保证「是否成交」在固定操作列之前完整可见 */
+/* 22.1b 1024~1279：收窄页面留白 */
 @media (max-width: 1279px) {
   .view { padding: 24px 24px 64px; }
   .topbar { padding: 0 24px; }
   .search-box { flex-basis: 290px; width: 290px; }
-  .data-table--customers th[data-col="product"],
-  .data-table--customers td[data-col="product"] { width: 118px; }
-  .data-table--customers th[data-col="companyName"],
-  .data-table--customers td[data-col="companyName"] { width: 112px; }
-  .data-table--customers { min-width: 1150px; }
 }
 
 /* 22.2 <1024：隐藏侧栏，抽屉式滑入；两栏布局堆叠 */
@@ -2942,14 +3267,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .recog-layout { grid-template-columns: minmax(0, 1fr); }
   .recog-panel--source > .textarea--lg { min-height: 200px; }
   .help-grid { grid-template-columns: minmax(0, 1fr); }
-  .data-table--customers { min-width: 1150px; }
+  .pie-chart { grid-template-columns: minmax(0, 1fr); }
+  .card--pie .pie-chart { grid-template-columns: minmax(0, 1fr); }
+  .pie-legend {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+  }
   .table-wrap { max-height: calc(100vh - 280px); }
 }
 
-/* 22.3 <768：隐藏产品 / 公司名 / 核心原因；工具栏换行 */
+/* 22.3 <768：隐藏产品 / 主营业务 / 公司名 / 核心原因 / 距上次跟进；工具栏换行 */
 @media (max-width: 767px) {
   .data-table--customers th[data-col="product"],
   .data-table--customers td[data-col="product"],
+  .data-table--customers th[data-col="mainBusiness"],
+  .data-table--customers td[data-col="mainBusiness"],
   .data-table--customers th[data-col="companyName"],
   .data-table--customers td[data-col="companyName"],
   .data-table--customers th[data-col="coreReason"],
@@ -3092,6 +3425,17 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .file-btn { flex: 1 1 auto; }
   .info-list > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 
+  .pie-figure { width: 168px; height: 168px; }
+  .card--pie .pie-figure { width: 168px; height: 168px; }
+  .pie-total { font-size: 28px; }
+  .legend-item {
+    grid-template-columns: 10px minmax(0, 1fr) auto 42px;
+    gap: 6px;
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+  .legend-pct { font-size: 11px; }
+
   .table-wrap { max-height: calc(100vh - 250px); }
   .crumbs { display: none; }
   .topbar-heading { font-size: 15.5px; }
@@ -3164,7 +3508,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .icon-btn,
   .btn,
   .file-btn,
-  .sample-pill { display: none !important; }
+  .sample-pill,
+  .product-library,
+  .product-form,
+  .product-form-row,
+  .product-table,
+  .product-row,
+  .product-empty,
+  .product-picker,
+  .product-add-btn { display: none !important; }
 
   .view {
     margin: 0 !important;
@@ -3249,6 +3601,24 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   .data-table--customers td[data-col="annualRevenue"] { display: table-cell !important; }
   .row-detail-meta { display: flex !important; }
 
+  /* 扇形图打印：保留 SVG 与图例，去掉 hover 效果；卡内恢复普通文档流 */
+  .card--pie { break-inside: avoid; }
+  .card--pie .card-body { display: block; }
+  .card--pie .pie-chart {
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 10px 20px;
+  }
+  .card--pie .pie-figure { width: 170px; height: 170px; }
+  .pie-slice {
+    filter: none !important;
+    stroke: #ffffff;
+    stroke-width: 2;
+  }
+  .pie-total { font-size: 28px; color: #111111; }
+  .legend-item { padding: 3px 4px; }
+  .legend-value,
+  .legend-pct { color: #111111; }
+
   .empty { padding: 24px 0; }
   .empty-art svg { width: 90px; height: 68px; }
   .badge,
@@ -3323,7 +3693,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
           <span>本地优先 · 数据不出电脑</span>
         </div>
-        <div class="sidebar-version">v1.0.0 · localStorage</div>
+        <div class="sidebar-version">v1.1.0 · localStorage</div>
       </div>
     </aside>
 
@@ -3386,7 +3756,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var STORAGE_KEY = 'customer-crm.v1';
 
   /* ------------------------------------------------------------------ */
@@ -3573,8 +3943,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     },
     {
       key: 'product', label: '咨询产品', type: 'text', required: false,
-      table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品 / 型号 / 规格',
-      placeholder: '不锈钢保温杯 500ml'
+      table: true, excel: '咨询产品', width: 26, hint: '客户询价的产品名称，可从「产品库」下拉选择',
+      placeholder: '不锈钢保温杯'
+    },
+    {
+      key: 'productModel', label: '产品型号', type: 'text', required: false,
+      table: false, excel: '产品型号', width: 16, hint: '与产品名称对应的型号 / 规格，如 500ml、16 件套',
+      placeholder: '500ml'
     },
     {
       key: 'country', label: '国家', type: 'select', required: false,
@@ -3585,6 +3960,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       key: 'companyName', label: '公司名', type: 'text', required: false,
       table: true, excel: '公司名', width: 30, hint: '客户公司全称',
       placeholder: 'Braun Trading GmbH'
+    },
+    {
+      key: 'mainBusiness', label: '主营业务', type: 'text', required: false,
+      table: true, excel: '主营业务', width: 22, hint: '客户公司的主营业务 / 主要进口品类，如 户外用品进口分销',
+      placeholder: '户外用品进口分销'
     },
     {
       key: 'foundedAt', label: '成立时间', type: 'text', required: false,
@@ -3620,7 +4000,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     {
       title: '客户与公司信息',
       hint: '询盘来源与客户背景，用于判断客户质量与采购能力',
-      keys: ['firstInquiryAt', 'customerName', 'product', 'country', 'companyName', 'foundedAt', 'teamSize', 'annualRevenue']
+      keys: ['firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName', 'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue']
     },
     {
       title: '跟进与成交',
@@ -3876,8 +4256,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     firstInquiryAt: '',
     customerName: '',
     product: '',
+    productModel: '',
     country: '',
     companyName: '',
+    mainBusiness: '',
     foundedAt: '',
     teamSize: '',
     annualRevenue: '',
@@ -3888,6 +4270,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     createdAt: '',
     updatedAt: ''
   };
+
+  /* 产品库预置数据：首次使用 / 清空后恢复时写入，可在设置页增删 */
+  var DEFAULT_PRODUCTS = [
+    { name: '不锈钢保温杯', model: '500ml' },
+    { name: '不锈钢保温杯', model: '750ml' },
+    { name: '不锈钢保温杯', model: '1L' },
+    { name: '不锈钢运动水壶', model: '1L' },
+    { name: '陶瓷餐具套装', model: '16 件套' },
+    { name: '硅胶厨具套装', model: '12 件套' },
+    { name: '户外折叠椅', model: '标准款' },
+    { name: '保温饭盒', model: '1.2L' },
+    { name: '玻璃保鲜盒', model: '5 件套' },
+    { name: '硅胶折叠水杯', model: '500ml' },
+    { name: '密胺餐具', model: '10 件套' },
+    { name: '不粘锅套装', model: '3 件套' }
+  ];
 
   var FIELD_KEYS = FIELDS.map(function (f) { return f.key; });
 
@@ -4020,8 +4418,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       firstInquiryAt: rec.firstInquiryAt,
       customerName: rec.customerName || '',
       product: rec.product || '',
+      productModel: rec.productModel || '',
       country: rec.country || '',
       companyName: rec.companyName || '',
+      mainBusiness: rec.mainBusiness || '',
       foundedAt: rec.foundedAt || '',
       teamSize: rec.teamSize || '',
       annualRevenue: rec.annualRevenue || '',
@@ -4098,6 +4498,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     FIELD_GROUPS: FIELD_GROUPS,
     FIELD_KEYS: FIELD_KEYS,
     DEFAULT_RECORD: DEFAULT_RECORD,
+    DEFAULT_PRODUCTS: DEFAULT_PRODUCTS,
 
     emptyRecord: emptyRecord,
     normalize: normalize,
@@ -4636,17 +5037,17 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   if (!schema && typeof globalThis !== 'undefined' && globalThis.CRM_SCHEMA) { schema = globalThis.CRM_SCHEMA; }
   if (!schema && typeof window !== 'undefined' && window.CRM_SCHEMA) { schema = window.CRM_SCHEMA; }
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
 
-  /* 11 个字段的固定顺序（与 schema.FIELDS 保持一致，缺 schema 时用兜底表） */
+  /* 13 个字段的固定顺序（与 schema.FIELDS 保持一致；缺 schema 时用兜底表） */
   var FALLBACK_FIELD_KEYS = [
-    'firstInquiryAt', 'customerName', 'product', 'country', 'companyName',
-    'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
+    'firstInquiryAt', 'customerName', 'product', 'productModel', 'country', 'companyName',
+    'mainBusiness', 'foundedAt', 'teamSize', 'annualRevenue', 'followupStatus', 'dealStatus', 'coreReason'
   ];
   var FIELD_KEYS = FALLBACK_FIELD_KEYS.slice();
   if (schema && Array.isArray(schema.FIELDS) && schema.FIELDS.length) {
     var fromSchema = schema.FIELDS.map(function (f) { return f.key; });
-    if (fromSchema.length === FALLBACK_FIELD_KEYS.length) { FIELD_KEYS = fromSchema; }
+    if (fromSchema.length) { FIELD_KEYS = fromSchema; }
   }
 
   /* 单次识别允许处理的最大字符数（超长文本截断，保证性能与稳定性） */
@@ -5186,7 +5587,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 
   /**
    * 依次尝试 rules，返回第一个通过 pick 校验的匹配结果。
-   * rule: { id, re(global), pick(m) -> {value,index,len}|null }
+   * rule: { id, re(global), pick(m, text) -> {value,index,len}|null }
+   * 个别规则（如主营业务）需要看匹配位置前后的上下文，故把全文 text 传给 pick。
    */
   function pickFirstRule(rules, text) {
     for (var i = 0; i < rules.length; i += 1) {
@@ -5196,7 +5598,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       var m = re.exec(text);
       while (m !== null) {
         if (m[0].length === 0) { re.lastIndex += 1; m = re.exec(text); continue; }
-        var hit = rule.pick(m);
+        var hit = rule.pick(m, text);
         if (hit) {
           hit.rule = rule.id;
           return hit;
@@ -5373,7 +5775,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     t = t.replace(/^(?:我们的|我司的|我公司的|我们|我司|本公司|这款|该款|一款|一批|一个|一套|the|our|a|an)\s*/i, '');
     t = t.replace(/^(?:采购|购买|订购|询购|求购|需要)\s*/, '');
     t = t.replace(/\s*(?:的)?(?:价格|报价单|报价|价钱|quotation|price|quote)\s*$/i, '');
-    t = t.replace(/[，。；;,、：:！!？?]+$/g, '').trim();
+    t = t.replace(/[.，。；;,、：:！!？?]+$/g, '').trim();
     if (!t) { return ''; }
     if (/(?:有限公司|有限责任公司|集团|GmbH|Co\.,?\s*Ltd|LLC|Inc\.?|Corp\.?)/i.test(t)) { return ''; }
     if (t.length > 60) { t = t.slice(0, 60); }
@@ -5422,9 +5824,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       }
     },
     {
-      /* 英文：regarding our … / inquiry about … / interested in … */
+      /* 英文：regarding our … / inquiry about … / interested in … / please quote … */
       id: 'product.en',
-      re: /(?:regarding|inquir(?:y|ies)\s+(?:about|for|on)|enquir(?:y|ies)\s+(?:about|for|on)|interested\s+in|asking\s+about|asking\s+for|asked\s+about|asked\s+for|quotation\s+for|quote\s+for|looking\s+for|wrote\s+about|emailed\s+(?:us\s+)?about)\s+(?:our|the|a|an|your)?\s*([^。.;,!\n?]{2,80})/gi,
+      re: /(?:regarding|inquir(?:y|ies)\s+(?:about|for|on)|enquir(?:y|ies)\s+(?:about|for|on)|interested\s+in|asking\s+about|asking\s+for|asked\s+about|asked\s+for|quotation\s+for|quote\s+for|please\s+quote|looking\s+for|wrote\s+about|emailed\s+(?:us\s+)?about)\s+(?:our|the|a|an|your)?\s*((?:[^。;,!\n?.]|\.(?!\s|$)){2,80})/gi,
       pick: function (m) {
         var value = cleanProduct(m[1]);
         if (!value) { return null; }
@@ -5432,6 +5834,219 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       }
     }
   ];
+
+  /* ================================================================== */
+  /* 7b. 主营业务 / 产品型号（v1.1 新增字段）                              */
+  /* ================================================================== */
+
+  /* ---------- 7b.1 主营业务 mainBusiness ---------- */
+
+  /* 主语是「我们/同行/竞争对手」时，说的不是客户的主营业务，直接跳过 */
+  var BUSINESS_NOISE_RE = /(?:我们|我司|我公司|本公司|我方|我厂|竞争对手|同行|另一家|其他供应商|竞品|对手)/;
+
+  /** 找到匹配位置所在「分句」的起点（用于判断分句主语） */
+  function clauseStartIndex(text, index) {
+    var i = index - 1;
+    while (i >= 0) {
+      var c = text.charAt(i);
+      if ('。；;，,\n\r！!？?'.indexOf(c) !== -1) { break; }
+      i -= 1;
+    }
+    return i + 1;
+  }
+
+  function businessNoise(text, index, matchText) {
+    var start = clauseStartIndex(text, index);
+    if (BUSINESS_NOISE_RE.test(text.slice(start, index))) { return true; }
+    /* 「主营产品/主营商品」多指我方产品，不是客户业务 */
+    if (/(?:主营|主要经营|主要业务|主要从事于|主要从事|业务范围|经营范围|专营)\s*(?:产品|商品|品类)/.test(matchText)) { return true; }
+    if (/^(?:做|从事|经营)(?:好|得|完|成)/.test(matchText)) { return true; }
+    return false;
+  }
+
+  /** 清洗主营业务：去连接词/主语前缀、去尾缀，≤30 字 */
+  function cleanBusiness(value) {
+    var t = collapseSpace(value);
+    var lead = /^(?:[\s:：,，。;；、\-–—]+|即|就是|是|为|一家|一个|的|我们|我司|我公司|本公司|客户|他们|其|该公司|公司)+/;
+    for (var i = 0; i < 4 && lead.test(t); i += 1) { t = t.replace(lead, ''); }
+    t = t.replace(/[\s:：,，。;；、]+$/, '');
+    t = t.replace(/(?:的公司|的企业|等业务|业务|的公司)$/, '');
+    if (!t) { return ''; }
+    if (t.length > 30) {
+      t = t.slice(0, 30);
+      if (/^[A-Za-z]/.test(t)) {
+        var space = t.lastIndexOf(' ');
+        if (space > 12) { t = t.slice(0, space); }
+      }
+    }
+    /* 截断后可能留下悬空的连接词，去掉 */
+    t = t.replace(/\s+(?:and|or|of|for|with|the|a|an|to|in|&)$/i, '');
+    t = collapseSpace(t);
+    return t.length >= 2 ? t : '';
+  }
+
+  var BUSINESS_ROLE_MAP = {
+    '进口商': '进口', '出口商': '出口', '批发商': '批发', '分销商': '分销',
+    '零售商': '零售', '代理商': '代理', '经销商': '经销'
+  };
+
+  var BUSINESS_RULES = [
+    {
+      /* 主营户外用品 / 主要从事家居用品 / 业务范围：厨房用品 */
+      id: 'business.cn-label',
+      re: /(?:主营业务|主营|主要经营|主要业务|主要从事于|主要从事|业务范围|经营范围|专营)\s*(?:业务|范围|是|为|有|：|:)?\s*([^，,。；;、\n！!？?]{2,40})/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1]);
+        if (!value) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* 做家居用品进口 / 从事户外用品批发 / 经营五金分销 */
+      id: 'business.cn-trade',
+      re: /(?:做|从事|经营|主营)(?!状况|情况|困难)(?:的是|着)?\s*([^，,。；;、\n！!？?]{2,30}?)\s*(进口|出口|批发|分销|零售|贸易|代理|经销)/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1] + m[2]);
+        if (!value || value.length < 3) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* 是一家家居用品进口商 / 户外用品分销商 */
+      id: 'business.cn-role',
+      re: /([\u4e00-\u9fa5A-Za-z]{2,20})(?:的)?(进口商|出口商|批发商|分销商|零售商|代理商|经销商)/g,
+      pick: function (m, text) {
+        if (businessNoise(text, m.index, m[0])) { return null; }
+        var value = cleanBusiness(m[1] + (BUSINESS_ROLE_MAP[m[2]] || ''));
+        if (!value || value.length < 3) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    },
+    {
+      /* English: specialized in / mainly deals in / distributor of / importer of / wholesaler of */
+      id: 'business.en',
+      re: /(?:speciali[sz](?:e|es|ed|ing)\s+in|mainly\s+(?:deals?|trades?)\s+in|deals?\s+mainly\s+in|distributor\s+of|importer\s+of|wholesaler\s+of|retailer\s+of|trading\s+company\s+(?:of|speciali[sz]ing\s+in)|imports?\s+and\s+distributes|focus(?:es|ed)?\s+on)\s+(?:the\s+)?([^.;,\n]{2,60})/gi,
+      pick: function (m) {
+        var value = cleanBusiness(m[1]);
+        if (!value) { return null; }
+        return { value: value, index: m.index, len: m[0].length };
+      }
+    }
+  ];
+
+  function extractMainBusiness(norm) {
+    return pickFirstRule(BUSINESS_RULES, norm);
+  }
+
+  /* ---------- 7b.2 产品型号 productModel ---------- */
+
+  /* 规格模式：容量 / 件套 / pcs / 尺寸 / 套装 */
+  var MODEL_PATTERNS = [
+    { id: 'model.capacity', re: /(\d+(?:\.\d+)?)\s*(ml|毫升|l|升)(?![\w])/gi },
+    { id: 'model.count', re: /(\d+)\s*(件套|件套装|件装|pcs\.?|pieces?|pc|套)(?![\w])/gi },
+    { id: 'model.set', re: /(\d+)\s*-\s*(?:pieces?|pcs?|pc)\s+set/gi },
+    { id: 'model.size', re: /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*(cm|mm|厘米|毫米|inch|英寸)?/g }
+  ];
+
+  /* 显式标注的型号（型号/规格/model/SKU…），产品短语里没规格时兜底 */
+  var MODEL_LABEL_RE = /(?:产品型号|型号|规格|model(?:\s*(?:no\.?|number))?|item\s*(?:no\.?|code)|sku|货号|款号)\s*[：:#]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{0,24})/gi;
+
+  function normalizeModelToken(m, kind) {
+    if (kind === 'model.capacity') {
+      var unit = String(m[2]).toLowerCase();
+      return String(m[1]) + (unit === 'ml' || unit === '毫升' ? 'ml' : 'L');
+    }
+    if (kind === 'model.count') {
+      var u = String(m[2]).toLowerCase().replace(/\.$/, '');
+      var n = String(m[1]);
+      if (u === 'pcs' || u === 'pc' || u === 'piece' || u === 'pieces') { return n + ' pcs'; }
+      if (u === '件套' || u === '件套装') { return n + ' 件套'; }
+      if (u === '件装') { return n + ' 件装'; }
+      return n + ' 套';
+    }
+    if (kind === 'model.set') { return String(m[1]) + '-piece set'; }
+    if (kind === 'model.size') {
+      var dimUnit = m[3] ? String(m[3]).toLowerCase() : '';
+      if (dimUnit === '英寸') { dimUnit = 'inch'; }
+      return String(m[1]) + '×' + String(m[2]) + dimUnit;
+    }
+    return '';
+  }
+
+  /** 从一段产品短语里收集规格 token（按出现顺序、去重） */
+  function collectModelTokens(text) {
+    if (!text) { return []; }
+    var found = [];
+    for (var p = 0; p < MODEL_PATTERNS.length; p += 1) {
+      var def = MODEL_PATTERNS[p];
+      def.re.lastIndex = 0;
+      var m = def.re.exec(text);
+      while (m !== null) {
+        if (m[0].length === 0) { def.re.lastIndex += 1; m = def.re.exec(text); continue; }
+        var token = normalizeModelToken(m, def.id);
+        if (token) { found.push({ token: token, index: m.index }); }
+        m = def.re.exec(text);
+      }
+    }
+    found.sort(function (a, b) { return a.index - b.index; });
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < found.length; i += 1) {
+      if (seen[found[i].token]) { continue; }
+      seen[found[i].token] = 1;
+      out.push(found[i]);
+    }
+    return out;
+  }
+
+  /** 在原文中定位型号的位置（evidence 用；空格/大小写做宽松匹配） */
+  function locateModel(norm, token) {
+    var idx = norm.indexOf(token);
+    if (idx !== -1) { return { index: idx, len: token.length }; }
+    var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    var m = new RegExp(escaped, 'i').exec(norm);
+    if (m) { return { index: m.index, len: m[0].length }; }
+    return null;
+  }
+
+  /**
+   * 产品型号：优先从已识别的产品短语中抽规格；
+   * 抽不到时再看全文里「型号：XXX」这类显式标注；都没有则不输出。
+   * productHit 为产品字段的匹配位置，用于 evidence 兜底。
+   */
+  function extractProductModel(norm, productText, productHit) {
+    var tokens = collectModelTokens(productText);
+    if (tokens.length) {
+      var values = [];
+      var total = 0;
+      for (var i = 0; i < tokens.length && values.length < 3; i += 1) {
+        var token = tokens[i].token;
+        if (total + token.length + (values.length ? 1 : 0) > 30) { break; }
+        values.push(token);
+        total += token.length + 1;
+      }
+      if (values.length) {
+        var found = locateModel(norm, values[0]);
+        if (!found && productHit) { found = { index: productHit.index, len: productHit.len }; }
+        if (found) {
+          return { value: values.join(' '), index: found.index, len: found.len, rule: 'model.product' };
+        }
+      }
+    }
+    MODEL_LABEL_RE.lastIndex = 0;
+    var m = MODEL_LABEL_RE.exec(norm);
+    while (m !== null) {
+      if (m[0].length === 0) { MODEL_LABEL_RE.lastIndex += 1; m = MODEL_LABEL_RE.exec(norm); continue; }
+      var label = String(m[1] || '').replace(/[.\-_/]+$/, '');
+      if (label.length >= 2 && /\d/.test(label)) {
+        return { value: label, index: m.index + m[0].indexOf(m[1]), len: m[1].length, rule: 'model.label' };
+      }
+      m = MODEL_LABEL_RE.exec(norm);
+    }
+    return null;
+  }
 
   /* ================================================================== */
   /* 8. 跟进状态 / 成交状态                                               */
@@ -5714,6 +6329,18 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       /* 8) 咨询产品 */
       var product = pickFirstRule(PRODUCT_RULES, norm);
       if (product) { setField(ctx, 'product', product.value, product.index, product.len, product.rule); }
+
+      /* 8b) 产品型号（v1.1：从产品短语抽规格，无则不出） */
+      var model = extractProductModel(norm, product ? product.value : '', product);
+      if (model) {
+        setField(ctx, 'productModel', model.value, model.index, model.len, model.rule);
+      }
+
+      /* 8c) 主营业务（v1.1） */
+      var business = extractMainBusiness(norm);
+      if (business) {
+        setField(ctx, 'mainBusiness', business.value, business.index, business.len, business.rule);
+      }
 
       /* 9) 跟进状态：识别不到则按契约给默认「新询盘」 */
       var status = pickFirstRule(STATUS_RULES, norm);
@@ -6487,16 +7114,19 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   }
 
   /* ================================================================== */
-  /* 6. 客户台账导出：两个工作表、19 + 10 列                              */
+  /* 6. 客户台账导出：两个工作表、21 + 11 列（v1.1）                       */
   /* ================================================================== */
 
+  /* v1.1：客户总表 21 列（新增「产品型号」「主营业务」） */
   var TOTAL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
-    { header: '咨询产品', width: 28 },
+    { header: '咨询产品', width: 26 },
+    { header: '产品型号', width: 16 },
     { header: '国家', width: 14, align: 'center' },
     { header: '公司名', width: 30 },
+    { header: '主营业务', width: 22 },
     { header: '成立时间', width: 14, align: 'center' },
     { header: '团队规模', width: 16 },
     { header: '年营收', width: 18 },
@@ -6512,11 +7142,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     { header: '最近跟进③内容', width: 46, wrap: true }
   ];
 
+  /* v1.1：跟进明细 11 列（新增「主营业务」） */
   var DETAIL_COLUMNS = [
     { header: '序号', width: 8, align: 'center' },
     { header: '首次询盘时间', width: 15, align: 'center' },
     { header: '客户名称', width: 20 },
     { header: '公司名', width: 30 },
+    { header: '主营业务', width: 22 },
     { header: '国家', width: 14, align: 'center' },
     { header: '跟进日期', width: 15, align: 'center' },
     { header: '距今天数', width: 12, align: 'center', numFmt: '0' },
@@ -6601,8 +7233,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
       product: asText(rec.product),
+      productModel: asText(rec.productModel),
       country: asText(rec.country),
       companyName: asText(rec.companyName),
+      mainBusiness: asText(rec.mainBusiness),
       foundedAt: asText(rec.foundedAt),
       teamSize: asText(rec.teamSize),
       annualRevenue: asText(rec.annualRevenue),
@@ -6638,8 +7272,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       firstInquiryAt: asText(rec.firstInquiryAt),
       customerName: asText(rec.customerName),
       product: asText(rec.product),
+      productModel: asText(rec.productModel),
       country: asText(rec.country),
       companyName: asText(rec.companyName),
+      mainBusiness: asText(rec.mainBusiness),
       foundedAt: asText(rec.foundedAt),
       teamSize: asText(rec.teamSize),
       annualRevenue: asText(rec.annualRevenue),
@@ -6736,8 +7372,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         asText(item.firstInquiryAt),
         asText(item.customerName),
         asText(item.product),
+        asText(item.productModel),
         asText(item.country),
         asText(item.companyName),
+        asText(item.mainBusiness),
         asText(item.foundedAt),
         asText(item.teamSize),
         asText(item.annualRevenue),
@@ -6759,6 +7397,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           asText(item.firstInquiryAt),
           asText(item.customerName),
           asText(item.companyName),
+          asText(item.mainBusiness),
           asText(item.country),
           fu.date,
           fu.daysAgo === null || fu.daysAgo === undefined ? '' : Number(fu.daysAgo),
@@ -7012,15 +7651,34 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     }
   ];
 
+  /* 示例客户的「产品名称 / 型号 / 主营业务」（与产品库预置数据对应） */
+  var DEMO_EXTRA = {
+    'Michael Braun': { product: '不锈钢保温杯', productModel: '500ml', mainBusiness: '户外用品进口分销' },
+    'Elena Rossi': { product: '陶瓷餐具套装', productModel: '16 件套', mainBusiness: '家居餐具进口分销' },
+    'Ahmed Hassan': { product: '户外折叠椅', productModel: '标准款', mainBusiness: '户外用品批发零售' },
+    'Sarah Thompson': { product: '硅胶厨具套装', productModel: '12 件套', mainBusiness: '厨房用品连锁零售' },
+    'Lucas Silva': { product: '不锈钢运动水壶', productModel: '1L', mainBusiness: '运动户外电商' },
+    'Yuki Tanaka': { product: '保温饭盒', productModel: '1.2L', mainBusiness: '日用百货批发' },
+    'Olga Petrova': { product: '玻璃保鲜盒', productModel: '5 件套', mainBusiness: '商超渠道分销' },
+    'David Okafor': { product: '密胺餐具', productModel: '10 件套', mainBusiness: '酒店用品进口' },
+    'Peter van Dijk': { product: '不锈钢保温杯', productModel: '750ml', mainBusiness: '自有品牌 OEM 采购' },
+    'Kim Min-su': { product: '硅胶折叠水杯', productModel: '500ml', mainBusiness: '生活用品电商' },
+    'James Carter': { product: '不锈钢保温杯', productModel: '1L', mainBusiness: '户外装备零售连锁' },
+    'Sophie Martin': { product: '不粘锅套装', productModel: '3 件套', mainBusiness: '厨房用品进口商' }
+  };
+
   function buildDemoRecords() {
     return DEMO_BLUEPRINT.map(function (item) {
+      var extra = DEMO_EXTRA[item.customerName] || {};
       var rec = schema.normalize({
         id: schema.uid('c_'),
         firstInquiryAt: ago(item.firstInquiryAt),
         customerName: item.customerName,
-        product: item.product,
+        product: extra.product || item.product,
+        productModel: extra.productModel || item.productModel || '',
         country: item.country,
         companyName: item.companyName,
+        mainBusiness: extra.mainBusiness || item.mainBusiness || '',
         foundedAt: item.foundedAt,
         teamSize: item.teamSize,
         annualRevenue: item.annualRevenue,
@@ -7046,8 +7704,28 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       version: PAYLOAD_VERSION,
       savedAt: schema.nowISO(),
       settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
-      customers: []
+      customers: [],
+      products: []
     };
+  }
+
+  function normalizeProduct(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var name = String(raw.name || raw.product || raw.productName || '').trim().slice(0, 120);
+    var model = String(raw.model || raw.productModel || '').trim().slice(0, 80);
+    if (!name) return null;
+    return {
+      id: String(raw.id || '').trim() || schema.uid('p_'),
+      name: name,
+      model: model,
+      createdAt: String(raw.createdAt || '').trim() || schema.nowISO()
+    };
+  }
+
+  function defaultProducts() {
+    return schema.DEFAULT_PRODUCTS.map(function (item) {
+      return normalizeProduct({ name: item.name, model: item.model });
+    });
   }
 
   function normalizePayload(raw) {
@@ -7062,6 +7740,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     }
     var list = Array.isArray(raw.customers) ? raw.customers : Array.isArray(raw.records) ? raw.records : [];
     payload.customers = list.map(function (item) { return schema.normalize(item); }).filter(Boolean);
+    if (Array.isArray(raw.products)) {
+      payload.products = raw.products.map(normalizeProduct).filter(Boolean);
+    } else {
+      /* 从 v1.0 升级：没有产品库字段时写入预置产品 */
+      payload.products = defaultProducts();
+    }
     payload.savedAt = typeof raw.savedAt === 'string' ? raw.savedAt : schema.nowISO();
     return payload;
   }
@@ -7079,9 +7763,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     if (isFirstRun && payload.customers.length === 0) {
       payload.customers = buildDemoRecords();
       payload.settings.seeded = true;
+      payload.products = defaultProducts();
       payload.savedAt = schema.nowISO();
       var ok = core.storage.set(KEY, payload);
       storageOk = ok;
+    }
+    if (!payload.products.length && payload.customers.length === 0 && !payload.settings.seeded) {
+      payload.products = defaultProducts();
     }
     state = payload;
     return state;
@@ -7189,6 +7877,79 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 
   function isEmpty() {
     return load().customers.length === 0;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 3.2 产品库（咨询产品预录入：产品名称 + 型号）                          */
+  /* ------------------------------------------------------------------ */
+
+  function listProducts() {
+    return load().products.slice().sort(function (a, b) {
+      var byName = String(a.name).localeCompare(String(b.name), 'zh-Hans-CN');
+      if (byName !== 0) return byName;
+      return String(a.model || '').localeCompare(String(b.model || ''), 'zh-Hans-CN');
+    });
+  }
+
+  function productNames() {
+    var seen = {};
+    var names = [];
+    listProducts().forEach(function (item) {
+      if (seen[item.name]) return;
+      seen[item.name] = true;
+      names.push(item.name);
+    });
+    return names;
+  }
+
+  function productModels(name) {
+    var target = String(name || '').trim();
+    if (!target) return [];
+    return listProducts().filter(function (item) {
+      return item.name === target && item.model;
+    }).map(function (item) { return item.model; });
+  }
+
+  /** 新增产品；name+model 已存在时直接返回已有项（不重复写入） */
+  function addProduct(raw) {
+    var payload = load();
+    var product = normalizeProduct(raw);
+    if (!product) return null;
+    var exists = payload.products.filter(function (item) {
+      return item.name === product.name && String(item.model || '') === String(product.model || '');
+    })[0];
+    if (exists) return exists;
+    payload.products.push(product);
+    persist('product-add');
+    return product;
+  }
+
+  function removeProduct(id) {
+    var payload = load();
+    var before = payload.products.length;
+    payload.products = payload.products.filter(function (item) { return item.id !== id; });
+    if (payload.products.length === before) return false;
+    persist('product-remove');
+    return true;
+  }
+
+  function seedProducts(force) {
+    var payload = load();
+    if (!force && payload.products.length) return payload.products.length;
+    payload.products = defaultProducts();
+    persist('product-seed');
+    return payload.products.length;
+  }
+
+  /** 产品库使用热度：{ '名称|型号': 客户数 } */
+  function productUsage() {
+    var usage = {};
+    load().customers.forEach(function (rec) {
+      var key = String(rec.product || '').trim() + '|' + String(rec.productModel || '').trim();
+      if (!String(rec.product || '').trim()) return;
+      usage[key] = (usage[key] || 0) + 1;
+    });
+    return usage;
   }
 
   /* ------------------------------------------------------------------ */
@@ -7309,13 +8070,14 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       version: schema.VERSION,
       exportedAt: schema.nowISO(),
       settings: payload.settings,
+      products: payload.products,
       customers: payload.customers
     }, null, 2);
   }
 
   /**
    * 导入 JSON 备份。mode: 'merge'（默认，同 id 覆盖）| 'replace'（清空后导入）
-   * 返回 { ok, imported, skipped, total, mode }
+   * 返回 { ok, imported, skipped, total, mode, products }
    */
   function importJSON(text, mode) {
     var parsed;
@@ -7341,13 +8103,34 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       else payload.customers[existingIndex] = rec;
       imported += 1;
     });
+    var importedProducts = 0;
+    if (Array.isArray(parsed.products)) {
+      if (importMode === 'replace') payload.products = [];
+      parsed.products.forEach(function (raw) {
+        var product = normalizeProduct(raw);
+        if (!product) return;
+        var dup = payload.products.some(function (item) {
+          return item.name === product.name && String(item.model || '') === String(product.model || '');
+        });
+        if (dup) return;
+        payload.products.push(product);
+        importedProducts += 1;
+      });
+    }
     if (parsed.settings && importMode === 'merge') {
       payload.settings.warnDays = finiteOr(parsed.settings.warnDays, payload.settings.warnDays);
       payload.settings.staleDays = finiteOr(parsed.settings.staleDays, payload.settings.staleDays);
     }
     payload.settings.seeded = true;
     persist('import');
-    return { ok: true, imported: imported, skipped: skipped, total: payload.customers.length, mode: importMode };
+    return {
+      ok: true,
+      imported: imported,
+      skipped: skipped,
+      total: payload.customers.length,
+      mode: importMode,
+      products: importedProducts
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -7381,6 +8164,14 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     clear: clear,
     seedDemo: seedDemo,
     isEmpty: isEmpty,
+
+    listProducts: listProducts,
+    productNames: productNames,
+    productModels: productModels,
+    addProduct: addProduct,
+    removeProduct: removeProduct,
+    seedProducts: seedProducts,
+    productUsage: productUsage,
 
     settings: settings,
     updateSettings: updateSettings,
@@ -7556,6 +8347,132 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '</div>';
   }
 
+  /* ---------------- 产品库：产品名称 + 型号 联动选择 ---------------- */
+
+  function catalogNames(products) {
+    var names = [];
+    (products || []).forEach(function (item) {
+      if (item && item.name && names.indexOf(item.name) === -1) names.push(item.name);
+    });
+    return names;
+  }
+
+  /**
+   * 把自由文本产品匹配到产品库：精确同名 → 文本包含库内产品名 → 自定义。
+   * 返回 { name, model, inCatalog }
+   */
+  function matchProductToCatalog(product, model) {
+    var text = String(product || '').trim();
+    var modelText = String(model || '').trim();
+    var products = Store.listProducts();
+    if (!text) return { name: '', model: modelText, inCatalog: false };
+    var names = catalogNames(products);
+    if (names.indexOf(text) !== -1) {
+      var exactModels = products.filter(function (item) { return item.name === text; }).map(function (item) { return item.model; });
+      return { name: text, model: modelText || exactModels[0] || '', inCatalog: true };
+    }
+    var contained = names.filter(function (name) { return text.indexOf(name) !== -1; })
+      .sort(function (a, b) { return b.length - a.length; })[0];
+    if (contained) {
+      var finalModel = modelText;
+      if (!finalModel) {
+        var matched = text.match(/(\d+(?:\.\d+)?\s*(?:ml|ML|l|L|升|件套|件|pcs|PCS|kg|g|寸|cm|米))|(\d+\s*[-~—至]\s*\d+\s*(?:件套|件|人|ml|ML))/);
+        if (matched) finalModel = matched[0].replace(/\s+/g, '');
+      }
+      return { name: contained, model: finalModel, inCatalog: true };
+    }
+    return { name: text, model: modelText, inCatalog: false };
+  }
+
+  function productFieldHtml(record) {
+    var rec = record || {};
+    var products = Store.listProducts();
+    var names = catalogNames(products);
+    var matched = matchProductToCatalog(rec.product || '', rec.productModel || '');
+    var custom = !!matched.inCatalog ? false : !!(rec.product || '').trim();
+    var selectedName = custom ? '' : matched.name;
+    var models = custom ? [] : products.filter(function (item) { return item.name === selectedName; })
+      .map(function (item) { return item.model; }).filter(Boolean);
+    if (!custom && matched.model && models.indexOf(matched.model) === -1) models.push(matched.model);
+
+    var nameOptions = '<option value="">请选择产品名称</option>' + names.map(function (name) {
+      var modelCount = products.filter(function (item) { return item.name === name && item.model; }).length;
+      return '<option value="' + esc(name) + '"' + (name === selectedName ? ' selected' : '') + '>' +
+        esc(name) + (modelCount > 1 ? '（' + modelCount + ' 个型号）' : '') + '</option>';
+    }).join('') +
+      '<option value="__custom__"' + (custom ? ' selected' : '') + '>＋ 手动输入其他产品…</option>';
+
+    var modelOptions = '<option value="">' + (custom ? '型号（可留空）' : '请选择型号') + '</option>' + models.map(function (model) {
+      return '<option value="' + esc(model) + '"' + (model === matched.model ? ' selected' : '') + '>' + esc(model) + '</option>';
+    }).join('');
+
+    return '<div class="field field--full" data-field="product">' +
+      '<label class="field-label" for="f-productName">咨询产品</label>' +
+      '<div class="product-picker">' +
+        '<select class="select product-picker-name" id="f-productName" name="productName" data-testid="product-name-select" aria-label="产品名称">' + nameOptions + '</select>' +
+        '<select class="select product-picker-model" name="productModel" data-testid="product-model-select" aria-label="产品型号"' + (custom ? ' hidden' : '') + '>' + modelOptions + '</select>' +
+        '<input type="text" class="input product-custom" name="productCustom" data-testid="product-custom-input" placeholder="产品名称，如 不锈钢保温杯" value="' + esc(custom ? (rec.product || '') : '') + '" aria-label="自定义产品名称"' + (custom ? '' : ' hidden') + '>' +
+        '<input type="text" class="input product-custom" name="productModelCustom" placeholder="型号 / 规格，如 500ml" value="' + esc(custom ? (rec.productModel || '') : '') + '" aria-label="自定义产品型号"' + (custom ? '' : ' hidden') + '>' +
+        '<button type="button" class="btn btn--ghost btn--sm product-add-btn" data-action="add-product-from-form"' + (custom && (rec.product || '').trim() ? '' : ' hidden') + '>' + icon('plus', 14) + ' 加入产品库</button>' +
+      '</div>' +
+      '<p class="field-hint">从产品库选择产品名称与型号；没有的产品可手动输入，并一键加入产品库</p>' +
+      '<p class="field-error" data-error-for="product" hidden></p>' +
+      '</div>';
+  }
+
+  function syncProductPicker(nameSelect) {
+    if (!nameSelect) return;
+    var form = document.getElementById('customer-form');
+    if (!form) return;
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    var addBtn = form.querySelector('.product-add-btn');
+    var custom = nameSelect.value === '__custom__';
+
+    if (custom) {
+      if (modelSelect) { modelSelect.hidden = true; }
+      if (customName) { customName.hidden = false; }
+      if (customModel) { customModel.hidden = false; }
+      if (addBtn) addBtn.hidden = false;
+      return;
+    }
+    if (customName) { customName.hidden = true; customName.value = ''; }
+    if (customModel) { customModel.hidden = true; customModel.value = ''; }
+    if (modelSelect) {
+      modelSelect.hidden = false;
+      var models = Store.productModels(nameSelect.value);
+      modelSelect.innerHTML = '<option value="">请选择型号</option>' + models.map(function (model) {
+        return '<option value="' + esc(model) + '">' + esc(model) + '</option>';
+      }).join('');
+      if (models.length === 1) modelSelect.value = models[0];
+    }
+    if (addBtn) addBtn.hidden = true;
+  }
+
+  function addProductFromForm() {
+    var form = document.getElementById('customer-form');
+    if (!form) return null;
+    var nameSelect = form.querySelector('[name="productName"]');
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    var custom = nameSelect && nameSelect.value === '__custom__';
+    var name = custom
+      ? (customName ? String(customName.value || '').trim() : '')
+      : (nameSelect ? nameSelect.value : '');
+    var model = custom
+      ? (customModel ? String(customModel.value || '').trim() : '')
+      : (modelSelect && !modelSelect.hidden ? modelSelect.value : '');
+    if (!name) { core.toast('请先填写产品名称', 'error'); return null; }
+    var product = Store.addProduct({ name: name, model: model });
+    if (!product) { core.toast('产品名称不能为空', 'error'); return null; }
+    core.toast('已加入产品库：' + name + (model ? ' · ' + model : ''), 'ok');
+    var addBtn = form.querySelector('.product-add-btn');
+    if (addBtn) { addBtn.disabled = true; addBtn.innerHTML = icon('check', 14) + ' 已加入'; }
+    return product;
+  }
+
   function followupRowHtml(item, index) {
     return '<div class="followup-row" data-followup-row>' +
       '<input type="date" class="input followup-date-input" data-followup-date value="' + esc(item.date || '') + '" aria-label="第 ' + (index + 1) + ' 次跟进日期">' +
@@ -7571,6 +8488,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '<div class="form-section-title">' + esc(group.title) + '</div>' +
         (group.hint ? '<p class="field-hint form-section-hint">' + esc(group.hint) + '</p>' : '') +
         '<div class="form-grid">' + group.keys.map(function (key) {
+          if (key === 'product') return productFieldHtml(rec);
+          if (key === 'productModel') return '';
           var field = schema.fieldByKey(key);
           return fieldHtml(field, rec[key] || '');
         }).join('') + '</div>' +
@@ -7632,6 +8551,20 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       var el = form.elements[key];
       data[key] = el ? String(el.value || '').trim() : '';
     });
+    /* v1.1：咨询产品由「产品名称下拉 + 型号下拉」或「自定义输入」组成 */
+    var nameSelect = form.querySelector('[name="productName"]');
+    var modelSelect = form.querySelector('[name="productModel"]');
+    var customName = form.querySelector('[name="productCustom"]');
+    var customModel = form.querySelector('[name="productModelCustom"]');
+    if (nameSelect) {
+      if (nameSelect.value === '__custom__') {
+        data.product = customName ? String(customName.value || '').trim() : '';
+        data.productModel = customModel ? String(customModel.value || '').trim() : '';
+      } else {
+        data.product = nameSelect.value;
+        data.productModel = modelSelect && !modelSelect.hidden ? String(modelSelect.value || '').trim() : '';
+      }
+    }
     var followups = [];
     core.qsa('[data-followup-row]', form).forEach(function (row) {
       var dateEl = row.querySelector('[data-followup-date]');
@@ -7829,9 +8762,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     var q = filter.q.trim().toLowerCase();
     if (!q) return true;
     var haystack = [
-      rec.customerName, rec.companyName, rec.product, rec.country, rec.coreReason,
-      rec.followupStatus, rec.dealStatus, rec.firstInquiryAt, rec.foundedAt,
-      rec.teamSize, rec.annualRevenue
+      rec.customerName, rec.companyName, rec.product, rec.productModel, rec.mainBusiness,
+      rec.country, rec.coreReason, rec.followupStatus, rec.dealStatus, rec.firstInquiryAt,
+      rec.foundedAt, rec.teamSize, rec.annualRevenue
     ].concat((rec.followups || []).map(function (item) { return item.note; })).join(' ').toLowerCase();
     return haystack.indexOf(q) !== -1;
   }
@@ -7894,6 +8827,112 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     }).join('') + '</div>';
   }
 
+  /* ---------------- 仪表盘：国家分布扇形图 ---------------- */
+
+  var PIE_COLORS = ['#0d9488', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#10b981', '#64748b', '#ec4899', '#14b8a6', '#f97316'];
+  var PIE_OTHER_COLOR = '#94a3b8';
+
+  /** 取前 6 个国家 + 其余聚合为「其他」 */
+  function pieGroups(byCountry, maxItems) {
+    var limit = maxItems || 6;
+    var sorted = byCountry.slice().sort(function (a, b) { return b.count - a.count; });
+    var top = sorted.slice(0, limit);
+    var rest = sorted.slice(limit);
+    var list = top.map(function (item) {
+      return { name: item.name, count: item.count, flag: schema.countryFlag(item.name), other: false };
+    });
+    if (rest.length) {
+      var restCount = rest.reduce(function (acc, item) { return acc + item.count; }, 0);
+      if (restCount > 0) {
+        list.push({ name: '其他 ' + rest.length + ' 个国家', count: restCount, flag: '', other: true });
+      }
+    }
+    return list;
+  }
+
+  /** 最大余数法：百分比取整且合计恰好 100 */
+  function piePercents(counts) {
+    var total = counts.reduce(function (acc, n) { return acc + n; }, 0) || 1;
+    var raw = counts.map(function (n) { return n / total * 100; });
+    var base = raw.map(function (v) { return Math.floor(v); });
+    var remain = 100 - base.reduce(function (acc, n) { return acc + n; }, 0);
+    var order = raw.map(function (v, i) { return { i: i, frac: v - Math.floor(v) }; })
+      .sort(function (a, b) { return b.frac - a.frac; });
+    for (var k = 0; k < remain; k += 1) base[order[k % order.length].i] += 1;
+    return base;
+  }
+
+  function donutSlicePath(cx, cy, rOuter, rInner, start, end) {
+    var x1 = cx + rOuter * Math.cos(start);
+    var y1 = cy + rOuter * Math.sin(start);
+    var x2 = cx + rOuter * Math.cos(end);
+    var y2 = cy + rOuter * Math.sin(end);
+    var x3 = cx + rInner * Math.cos(end);
+    var y3 = cy + rInner * Math.sin(end);
+    var x4 = cx + rInner * Math.cos(start);
+    var y4 = cy + rInner * Math.sin(start);
+    var large = (end - start) > Math.PI ? 1 : 0;
+    return 'M ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
+      ' A ' + rOuter + ' ' + rOuter + ' 0 ' + large + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) +
+      ' L ' + x3.toFixed(2) + ' ' + y3.toFixed(2) +
+      ' A ' + rInner + ' ' + rInner + ' 0 ' + large + ' 0 ' + x4.toFixed(2) + ' ' + y4.toFixed(2) + ' Z';
+  }
+
+  /** 生成 SVG 环形扇形图 + 图例 */
+  function pieChart(groups, total) {
+    if (!groups.length) return '<p class="hint">暂无客户数据</p>';
+    var sum = groups.reduce(function (acc, item) { return acc + item.count; }, 0) || 1;
+    var percents = piePercents(groups.map(function (item) { return item.count; }));
+    var cx = 100;
+    var cy = 100;
+    var rOuter = 82;
+    var rInner = 52;
+    var angle = -Math.PI / 2;
+    var slices = [];
+
+    groups.forEach(function (item, index) {
+      var frac = item.count / sum;
+      var end = angle + frac * Math.PI * 2;
+      var color = item.other ? PIE_OTHER_COLOR : PIE_COLORS[index % PIE_COLORS.length];
+      var title = item.name + '：' + item.count + ' 位（' + percents[index] + '%）';
+      var fillColor = color;
+      var path;
+      if (frac >= 0.9999) {
+        path = 'M ' + cx + ' ' + (cy - rOuter) + ' A ' + rOuter + ' ' + rOuter + ' 0 1 1 ' + (cx - 0.01) + ' ' + (cy - rOuter) +
+          ' Z M ' + cx + ' ' + (cy - rInner) + ' A ' + rInner + ' ' + rInner + ' 0 1 0 ' + (cx - 0.01) + ' ' + (cy - rInner) + ' Z';
+        slices.push('<path class="pie-slice' + (item.other ? ' pie-slice--other' : '') + '" d="' + path + '" fill="' + fillColor + '" fill-rule="evenodd" data-country="' + esc(item.name) + '"><title>' + esc(title) + '</title></path>');
+      } else {
+        path = donutSlicePath(cx, cy, rOuter, rInner, angle, end);
+        slices.push('<path class="pie-slice' + (item.other ? ' pie-slice--other' : '') + '" d="' + path + '" fill="' + fillColor + '" data-country="' + esc(item.name) + '"><title>' + esc(title) + '</title></path>');
+      }
+      angle = end;
+    });
+
+    var legend = '<ul class="pie-legend" data-testid="pie-legend">' + groups.map(function (item, index) {
+      var color = item.other ? PIE_OTHER_COLOR : PIE_COLORS[index % PIE_COLORS.length];
+      return '<li class="legend-item" data-country="' + esc(item.name) + '">' +
+        '<span class="legend-dot" style="background:' + color + '" aria-hidden="true"></span>' +
+        '<span class="legend-name">' + (item.flag ? '<span class="flag" aria-hidden="true">' + item.flag + '</span> ' : '') + esc(item.name) + '</span>' +
+        '<span class="legend-value">' + item.count + ' 位</span>' +
+        '<span class="legend-pct">' + percents[index] + '%</span>' +
+        '</li>';
+    }).join('') + '</ul>';
+
+    return '<div class="pie-chart" data-testid="country-pie">' +
+      '<div class="pie-figure">' +
+        '<svg class="pie-svg" viewBox="0 0 200 200" role="img" aria-label="客户国家分布扇形图">' +
+          '<circle class="pie-track" cx="100" cy="100" r="67" fill="none" stroke="#eef1f5" stroke-width="30"></circle>' +
+          slices.join('') +
+        '</svg>' +
+        '<div class="pie-center">' +
+          '<strong class="pie-total">' + esc(String(total)) + '</strong>' +
+          '<span class="pie-total-label">位客户</span>' +
+        '</div>' +
+      '</div>' +
+      legend +
+      '</div>';
+  }
+
   function renderDashboard() {
     var stats = Store.stats();
     var monthPrefix = schema.todayISO().slice(0, 7);
@@ -7901,9 +8940,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       return rec.firstInquiryAt.slice(0, 7) === monthPrefix;
     }).length;
 
-    var countryItems = stats.byCountry.slice(0, 6).map(function (item) {
-      return { name: item.name, count: item.count, flag: schema.countryFlag(item.name) };
-    });
+    var countryGroups = pieGroups(stats.byCountry, 6);
     var statusItems = stats.byStatus.map(function (item) {
       return { name: item.status, count: item.count, tone: item.tone };
     });
@@ -7952,9 +8989,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '</div>' +
 
       '<div class="page-grid page-grid--2">' +
-        '<section class="card">' +
-          '<div class="card-head"><div><h3 class="card-title">客户国家分布</h3><p class="card-sub">按客户数量排序，最多显示 6 个</p></div><div class="card-actions">' + icon('globe', 18) + '</div></div>' +
-          '<div class="card-body">' + barList(countryItems) + '</div>' +
+        '<section class="card card--pie">' +
+          '<div class="card-head"><div><h3 class="card-title">客户国家分布</h3><p class="card-sub">扇形图 · 前 6 个国家，其余聚合为「其他」</p></div><div class="card-actions">' + icon('globe', 18) + '</div></div>' +
+          '<div class="card-body">' + pieChart(countryGroups, stats.total) + '</div>' +
         '</section>' +
         '<section class="card">' +
           '<div class="card-head"><div><h3 class="card-title">跟进状态分布</h3><p class="card-sub">平均距上次跟进 ' + (stats.avgDaysSince === null ? '—' : stats.avgDaysSince + ' 天') + '</p></div><div class="card-actions">' + icon('chart', 18) + '</div></div>' +
@@ -7996,9 +9033,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '<td data-col="firstInquiryAt" class="cell-num">' + esc(rec.firstInquiryAt) + '</td>' +
         '<td data-col="age">' + ageCell(rec) + '</td>' +
         '<td data-col="customerName" class="cell-strong">' + esc(rec.customerName || '未命名') + '</td>' +
-        '<td data-col="product" class="cell-muted" title="' + esc(rec.product) + '">' + esc(rec.product || '—') + '</td>' +
+        '<td data-col="product" class="cell-product" title="' + esc(rec.product) + (rec.productModel ? ' · ' + esc(rec.productModel) : '') + '">' +
+          '<span class="cell-strong-inline">' + esc(rec.product || '—') + '</span>' +
+          (rec.productModel ? '<span class="cell-sub">' + esc(rec.productModel) + '</span>' : '') +
+        '</td>' +
         '<td data-col="country" class="cell-country">' + flagText(rec.country) + esc(rec.country || '—') + '</td>' +
         '<td data-col="companyName" title="' + esc(rec.companyName) + '">' + esc(rec.companyName || '—') + '</td>' +
+        '<td data-col="mainBusiness" class="cell-muted" title="' + esc(rec.mainBusiness) + '">' + esc(rec.mainBusiness || '—') + '</td>' +
         '<td data-col="foundedAt" class="cell-num">' + esc(rec.foundedAt || '—') + '</td>' +
         '<td data-col="teamSize">' + esc(rec.teamSize || '—') + '</td>' +
         '<td data-col="annualRevenue">' + esc(rec.annualRevenue || '—') + '</td>' +
@@ -8012,9 +9053,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         '</div></td>' +
       '</tr>' +
       '<tr class="row-detail" id="' + detailId + '" data-detail="' + esc(rec.id) + '"' + (state.expanded[rec.id] ? '' : ' hidden') + '>' +
-        '<td colspan="14">' +
+        '<td colspan="15">' +
           '<div class="row-detail-inner">' +
             '<div class="row-detail-meta">' +
+              '<span><i>产品型号</i>' + esc(rec.productModel || '—') + '</span>' +
+              '<span><i>主营业务</i>' + esc(rec.mainBusiness || '—') + '</span>' +
               '<span><i>成立时间</i>' + esc(rec.foundedAt || '—') + '</span>' +
               '<span><i>团队规模</i>' + esc(rec.teamSize || '—') + '</span>' +
               '<span><i>年营收</i>' + esc(rec.annualRevenue || '—') + '</span>' +
@@ -8081,9 +9124,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           '<th data-col="firstInquiryAt" scope="col">' + sortButton('firstInquiryAt', '首次询盘时间') + '</th>' +
           '<th data-col="age" scope="col">' + sortButton('daysSince', '距上次跟进') + '</th>' +
           '<th data-col="customerName" scope="col">' + sortButton('customerName', '客户名称') + '</th>' +
-          '<th data-col="product" scope="col">咨询产品</th>' +
+          '<th data-col="product" scope="col">咨询产品 / 型号</th>' +
           '<th data-col="country" scope="col">国家</th>' +
           '<th data-col="companyName" scope="col">公司名</th>' +
+          '<th data-col="mainBusiness" scope="col">主营业务</th>' +
           '<th data-col="foundedAt" scope="col">成立时间</th>' +
           '<th data-col="teamSize" scope="col">团队规模</th>' +
           '<th data-col="annualRevenue" scope="col">年营收</th>' +
@@ -8112,7 +9156,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">客户台账</h2>' +
-          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 11 个核心字段 + 最近三次跟进</p>' +
+          '<p class="page-sub">共 ' + total + ' 位客户 · 当前显示 ' + records.length + ' 位 · 13 个核心字段 + 最近三次跟进</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-recognize" data-testid="btn-recognize">' + icon('sparkles', 16) + ' 智能识别</button>' +
@@ -8250,7 +9294,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       '<div class="page-head">' +
         '<div class="page-head-main">' +
           '<h2 class="page-title">智能识别 · 一段话自动填表</h2>' +
-          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出 11 个字段和最近三次跟进。</p>' +
+          '<p class="page-sub">粘贴客户询盘邮件、微信聊天、展会名片速记，自动拆分出产品名称/型号、主营业务等 13 个字段和最近三次跟进。</p>' +
         '</div>' +
         '<div class="page-head-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="goto-customers">' + icon('users', 16) + ' 返回客户台账</button>' +
@@ -8367,6 +9411,37 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   /* 9. 设置 / 帮助                                                       */
   /* ================================================================== */
 
+  function productLibraryHtml() {
+    var products = Store.listProducts();
+    var usage = Store.productUsage();
+    var rows = products.map(function (product) {
+      var used = usage[product.name + '|' + (product.model || '')] || 0;
+      return '<div class="product-row" data-testid="product-row" data-id="' + esc(product.id) + '">' +
+        '<span class="product-name">' + esc(product.name) + '</span>' +
+        '<span class="product-model">' + esc(product.model || '—') + '</span>' +
+        '<span class="product-usage">' + (used ? used + ' 位客户使用' : '暂未使用') + '</span>' +
+        '<button type="button" class="icon-btn icon-btn--sm icon-btn--danger product-remove" data-action="delete-product" data-id="' + esc(product.id) + '" data-testid="btn-delete-product" aria-label="删除产品" title="删除产品">' + icon('trash', 14) + '</button>' +
+        '</div>';
+    }).join('');
+
+    return '<section class="card product-library" data-testid="product-library">' +
+      '<div class="card-head">' +
+        '<div><h3 class="card-title">产品库</h3><p class="card-sub">预录入咨询产品名称与型号，新建客户时下拉选择 · 共 ' + products.length + ' 个产品</p></div>' +
+        '<div class="card-actions"><button type="button" class="btn btn--ghost btn--sm" data-action="seed-products" title="恢复 12 条预置产品">恢复预置产品</button></div>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<form id="product-form" data-testid="form-product" class="product-form" autocomplete="off">' +
+          '<div class="product-form-row">' +
+            '<input type="text" class="input" name="productNewName" placeholder="产品名称，如 不锈钢保温杯" aria-label="新产品名称" maxlength="120">' +
+            '<input type="text" class="input" name="productNewModel" placeholder="型号 / 规格，如 500ml" aria-label="新产品型号" maxlength="80">' +
+            '<button type="submit" class="btn btn--primary btn--sm" data-testid="btn-add-product">' + icon('plus', 14) + ' 加入产品库</button>' +
+          '</div>' +
+        '</form>' +
+        (rows ? '<div class="product-table">' + rows + '</div>' : '<p class="product-empty">产品库为空，先在上方添加一个产品名称与型号。</p>') +
+      '</div>' +
+      '</section>';
+  }
+
   function renderSettings() {
     var settings = Store.settings();
     var stats = Store.stats();
@@ -8405,11 +9480,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
             '<div class="data-actions"><button type="button" class="btn btn--primary btn--sm" data-action="save-settings">' + icon('check', 16) + ' 保存设置</button></div>' +
           '</div>' +
         '</section>' +
+        productLibraryHtml() +
         '<section class="card">' +
           '<div class="card-head"><div><h3 class="card-title">存储信息</h3><p class="card-sub">localStorage · 数据不出电脑</p></div><div class="card-actions">' + icon('file', 18) + '</div></div>' +
           '<div class="card-body">' +
             '<dl class="info-list">' +
               '<div><dt>客户记录</dt><dd>' + stats.total + ' 位（已成交 ' + stats.deal + ' 位）</dd></div>' +
+              '<div><dt>产品库</dt><dd>' + Store.listProducts().length + ' 个产品 / ' + Store.productNames().length + ' 个产品名</dd></div>' +
               '<div><dt>存储位置</dt><dd>浏览器 localStorage · 键名 <code class="mono">' + esc(Store.KEY) + '</code></dd></div>' +
               '<div><dt>可用状态</dt><dd>' + (storageOk ? '<span class="badge badge--ok">可用</span>' : '<span class="badge badge--danger">不可用</span>') + '</dd></div>' +
               '<div><dt>最后保存</dt><dd>' + esc(schema.formatDateTime(lastSaved)) + '</dd></div>' +
@@ -8453,24 +9530,33 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           '</ol>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>② 跟进与「距上次跟进」</h3>' +
+          '<h3>② 产品库与咨询产品</h3>' +
+          '<ul class="help-list">' +
+            '<li>设置页「产品库」可<b>预录入产品名称 + 型号</b>（默认已带 12 条），支持新增/删除/恢复预置。</li>' +
+            '<li>新建客户时「咨询产品」是<b>名称 + 型号联动下拉</b>，选完自动填两个字段，表格里型号以小字显示在产品名下方。</li>' +
+            '<li>没有的产品可直接手动输入，点「加入产品库」下次就能下拉选择。</li>' +
+            '<li>仪表盘的「客户国家分布」用<b>扇形图</b>展示，鼠标悬停切片可看国家、客户数与占比。</li>' +
+          '</ul>' +
+        '</section>' +
+        '<section class="help-card">' +
+          '<h3>③ 跟进与「距上次跟进」</h3>' +
           '<ul class="help-list">' +
             '<li>每位客户最多记录 <b>最近三次</b>跟进，最新一条排最前。</li>' +
             '<li>「距上次跟进」= 今天 − 最近一条跟进日期；没有跟进记录时显示「尚未跟进」。</li>' +
             '<li>颜色：<span class="badge badge--ok">7 天内</span> <span class="badge badge--warn">7-13 天</span> <span class="badge badge--danger">≥14 天</span>，阈值可在设置页调整。</li>' +
-            '<li>表格行首箭头展开，可看到三条跟进记录并直接补记。</li>' +
+            '<li>表格行首箭头展开，可看到三条跟进记录与产品型号/主营业务/公司规模，并可直接补记。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>③ 一键导出 Excel</h3>' +
+          '<h3>④ 一键导出 Excel</h3>' +
           '<ul class="help-list">' +
             '<li>客户台账页「一键导出 Excel」：有筛选时导出<b>当前筛选结果</b>，否则导出全部。</li>' +
-            '<li>文件含两个工作表：<b>客户总表</b>（19 列，含最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
+            '<li>文件含两个工作表：<b>客户总表</b>（21 列，含产品型号、主营业务、最近三次跟进与距上次跟进天数）与<b>跟进明细</b>（每条跟进一行）。</li>' +
             '<li>表头冻结、自动筛选、列宽与换行都已设置，可直接打印或发给同事。</li>' +
           '</ul>' +
         '</section>' +
         '<section class="help-card">' +
-          '<h3>④ 数据安全与迁移</h3>' +
+          '<h3>⑤ 数据安全与迁移</h3>' +
           '<ul class="help-list">' +
             '<li>数据只存在本机浏览器，不上传任何服务器；清除浏览器数据会丢失，请定期导出 JSON 备份。</li>' +
             '<li>换电脑：旧电脑导出 JSON → 新电脑「从 JSON 恢复」。</li>' +
@@ -8490,6 +9576,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
           '<ul class="help-list help-list--wide">' +
             '<li>带上 <b>日期 + 客户名 + 公司名 + 国家</b> 四要素，例如「2026年9月12日收到德国客户 Michael Braun 的询盘，公司 Braun Trading GmbH……」。</li>' +
             '<li>用「成立于」「团队」「年营收」这类标签词描述公司背景，识别成立时间 / 团队规模 / 年营收最稳。</li>' +
+            '<li>写清「主营/从事/进口/分销」与产品规格（如「500ml」「16 件套」），主营业务与产品型号也会自动识别。</li>' +
             '<li>跟进记录写成「日期 + 做了什么」，例如「11月18日邮件确认样品尺寸」，会被归入最近三次跟进。</li>' +
             '<li>识别不出的字段会在结果里标灰，可手动补填；所有字段都能在保存前修改。</li>' +
             '<li>快捷键：<span class="kbd">/</span> 聚焦搜索，<span class="kbd">N</span> 新建客户，<span class="kbd">Esc</span> 关闭弹窗。</li>' +
@@ -8515,6 +9602,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     });
     var topbarNew = document.querySelector('.btn-new-customer');
     if (topbarNew) topbarNew.style.display = routeName === 'customers' || routeName === 'dashboard' ? 'none' : '';
+    /* v1.1：客户台账页使用宽版布局（占屏更大） */
+    document.body.classList.toggle('route-customers', routeName === 'customers');
   }
 
   function render() {
@@ -8739,6 +9828,19 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
         break;
       case 'recognize-fill': applyRecognition('fill'); break;
       case 'recognize-add': applyRecognition('add'); break;
+      case 'add-product-from-form': addProductFromForm(); break;
+      case 'delete-product': {
+        var removed = Store.removeProduct(element.getAttribute('data-id'));
+        core.toast(removed ? '已从产品库删除' : '产品不存在或已删除', removed ? 'ok' : 'error');
+        if (removed && state.route === 'settings') render();
+        break;
+      }
+      case 'seed-products': {
+        var count = Store.seedProducts(true);
+        core.toast('已恢复 ' + count + ' 个预置产品', 'ok');
+        if (state.route === 'settings') render();
+        break;
+      }
       default: break;
     }
   }
@@ -8817,6 +9919,27 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       if (event.target && event.target.id === 'customer-form') {
         event.preventDefault();
         saveCustomerForm();
+        return;
+      }
+      if (event.target && event.target.id === 'product-form') {
+        event.preventDefault();
+        var form = event.target;
+        var nameEl = form.elements.productNewName;
+        var modelEl = form.elements.productNewModel;
+        var name = nameEl ? String(nameEl.value || '').trim() : '';
+        var model = modelEl ? String(modelEl.value || '').trim() : '';
+        if (!name) {
+          core.toast('请填写产品名称', 'error');
+          if (nameEl) { try { nameEl.focus(); } catch (err) { /* ignore */ } }
+          return;
+        }
+        var product = Store.addProduct({ name: name, model: model });
+        core.toast('已加入产品库：' + product.name + (product.model ? ' · ' + product.model : ''), 'ok');
+        if (state.route === 'settings') render();
+        setTimeout(function () {
+          var input = document.querySelector('#product-form [name="productNewName"]');
+          if (input) { try { input.focus(); } catch (err) { /* ignore */ } }
+        }, 30);
       }
     });
 
@@ -8864,6 +9987,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
     core.on(document, 'change', function (event) {
       var target = event.target;
       if (!target) return;
+      if (target.name === 'productName') {
+        syncProductPicker(target);
+        return;
+      }
       var map = { 'filter-country': 'country', 'filter-status': 'status', 'filter-deal': 'deal' };
       var key = map[target.id];
       if (!key) return;
@@ -8923,6 +10050,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
       exportJson: exportJson,
       stats: function () { return Store.stats(); },
       filtered: function () { return filteredDerived(); },
+      /* v1.1 产品库相关 */
+      selectProduct: function (name, model) {
+        var form = document.getElementById('customer-form');
+        if (!form) return false;
+        var nameSelect = form.querySelector('[name="productName"]');
+        if (!nameSelect) return false;
+        var products = Store.listProducts();
+        var names = catalogNames(products);
+        if (names.indexOf(name) === -1) {
+          nameSelect.value = '__custom__';
+          syncProductPicker(nameSelect);
+          var customName = form.querySelector('[name="productCustom"]');
+          var customModel = form.querySelector('[name="productModelCustom"]');
+          if (customName) customName.value = name || '';
+          if (customModel) customModel.value = model || '';
+          return true;
+        }
+        nameSelect.value = name;
+        syncProductPicker(nameSelect);
+        var modelSelect = form.querySelector('[name="productModel"]');
+        if (modelSelect) {
+          if (model && Store.productModels(name).indexOf(model) === -1) {
+            var option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            modelSelect.appendChild(option);
+          }
+          modelSelect.value = model || modelSelect.value;
+        }
+        return true;
+      },
+      addProduct: function (payload) { return Store.addProduct(payload); },
+      products: function () { return Store.listProducts(); },
       toast: core.toast,
       openFollowupModal: openFollowupModal,
       state: state,
