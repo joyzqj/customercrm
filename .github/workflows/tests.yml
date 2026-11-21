@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python (xlsx 校验用 openpyxl)
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check openpyxl
+
+      - name: 数据模型单测
+        run: node tests/test-schema.mjs
+
+      - name: 文本识别单测
+        run: node tests/test-parser.mjs
+
+      - name: Excel 导出单测
+        run: node tests/test-xlsx.mjs
