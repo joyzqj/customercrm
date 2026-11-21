@@ -34,7 +34,7 @@ try {
     version: window.CustomerCRM.version
   }))()`);
   console.log('online =', JSON.stringify(info));
-  check('线上 JS 加载正常', info.version === '1.0.0', JSON.stringify(info));
+  check('线上 JS 加载正常', info.version === '1.1.0', JSON.stringify(info));
   check('示例数据 12 条', info.total === 12, info.total);
   check('识别引擎在线可用', info.parser === true);
   check('Excel 引擎在线可用', info.xlsx === true);
@@ -62,10 +62,45 @@ try {
   // 线上识别
   const recog = await page.evaluate(`(() => {
     const r = window.CustomerCRM.app.recognize(window.CrmParser.SAMPLE_TEXTS[0].text);
-    return r ? { filled: r.filled, name: r.fields.customerName, country: r.fields.country } : null;
+    return r ? { filled: r.filled, name: r.fields.customerName, country: r.fields.country, model: r.fields.productModel, biz: r.fields.mainBusiness } : null;
   })()`);
   console.log('recognize =', JSON.stringify(recog));
-  check('线上识别样例 A', recog && recog.filled >= 9 && recog.name === 'Michael Braun', JSON.stringify(recog));
+  check('线上识别样例 A', recog && recog.filled >= 11 && recog.name === 'Michael Braun', JSON.stringify(recog));
+  check('线上识别产品型号/主营业务', recog && /500ml/i.test(recog.model || '') && /户外用品/.test(recog.biz || ''), JSON.stringify(recog));
+
+  // v1.1：扇形图 / 宽版台账 / 产品库
+  await page.appNavigate('#/dashboard');
+  await page.waitForApp();
+  await sleep(300);
+  const pie = await page.evaluate(`(() => {
+    const box = document.querySelector('[data-testid="country-pie"]');
+    return box ? {
+      slices: box.querySelectorAll('.pie-slice').length,
+      legend: box.querySelectorAll('.legend-item').length,
+      pct: Array.from(box.querySelectorAll('.legend-pct')).reduce((a, el) => a + parseInt(el.textContent, 10), 0)
+    } : null;
+  })()`);
+  console.log('online pie =', JSON.stringify(pie));
+  check('线上扇形图渲染', !!pie && pie.slices > 0 && pie.slices === pie.legend, JSON.stringify(pie));
+  check('线上扇形图百分比合计 100', !!pie && pie.pct === 100, pie && pie.pct);
+
+  await page.appNavigate('#/customers');
+  await page.waitUntil('document.querySelectorAll("tr.row").length > 0', { timeout: 10000 });
+  const wide = await page.evaluate(`(() => {
+    const inner = document.querySelector('.view-inner');
+    const table = document.querySelector('.data-table--customers');
+    return {
+      bodyClass: document.body.className,
+      innerWidth: Math.round(inner.getBoundingClientRect().width),
+      tableWidth: Math.round(table.getBoundingClientRect().width),
+      cols: document.querySelectorAll('tr.row:first-of-type td').length,
+      products: window.CustomerCRM.store.listProducts().length
+    };
+  })()`);
+  console.log('online layout =', JSON.stringify(wide));
+  check('线上宽版台账生效', /route-customers/.test(wide.bodyClass) && wide.innerWidth >= 1120, JSON.stringify(wide));
+  check('线上表格 15 列', wide.cols === 15, wide.cols);
+  check('线上产品库 12 条', wide.products === 12, wide.products);
 
   check('线上无 console 错误', page.errors().length === 0, JSON.stringify(page.errors().slice(0, 3)));
   await page.screenshot(path.join('screenshots', 'live-home.png'));
